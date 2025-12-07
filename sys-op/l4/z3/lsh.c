@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <stdatomic.h>
 #include <termios.h>
+#include <fcntl.h>
 
 #define N_HISTORY 10
 #define MAX_ARGS 64
@@ -329,6 +330,64 @@ void execute_commands(CommandList* list) {
                 }
                 close(pipefds[0]);
                 close(pipefds[1]);
+            }
+
+
+            // Handle < > redirection
+            for (int i = 0; i < current->length; i++) {
+                if (strcmp(current->args[i], "<") == 0) {
+                    if (current->args[i + 1] == NULL) {
+                        fprintf(stderr, "lsh: syntax error near unexpected token `newline'\n");
+                        exit(EXIT_FAILURE);
+                    }
+
+                    // https://pubs.opengroup.org/onlinepubs/7908799/xsh/open.html
+                    int fd = open(current->args[i + 1], O_RDONLY | O_CREAT | O_TRUNC, 0644);
+                    if (fd == -1) {
+                        perror("lsh: open for input redirection failed");
+                        exit(EXIT_FAILURE);
+                    }
+                    if (dup2(fd, STDIN_FILENO) == -1) {
+                        perror("lsh: dup2 for input redirection failed");
+                        exit(EXIT_FAILURE);
+                    }
+                    close(fd);
+                    current->args[i] = NULL; // Terminate args before <
+                } else if (strcmp(current->args[i], ">") == 0) {
+                    if (current->args[i + 1] == NULL) {
+                        fprintf(stderr, "lsh: syntax error near unexpected token `newline'\n");
+                        exit(EXIT_FAILURE);
+                    }
+
+                    int fd = open(current->args[i + 1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                    if (fd == -1) {
+                        perror("lsh: open for output redirection failed");
+                        exit(EXIT_FAILURE);
+                    }
+                    if (dup2(fd, STDOUT_FILENO) == -1) {
+                        perror("lsh: dup2 for output redirection failed");
+                        exit(EXIT_FAILURE);
+                    }
+                    close(fd);
+                    current->args[i] = NULL; // Terminate args before >
+                } else if (strcmp(current->args[i], "2>") == 0) {
+                    if (current->args[i + 1] == NULL) {
+                        fprintf(stderr, "lsh: syntax error near unexpected token `newline'\n");
+                        exit(EXIT_FAILURE);
+                    }
+
+                    int fd = open(current->args[i + 1], O_WRONLY | O_CREAT | O_APPEND, 0644);
+                    if (fd == -1) {
+                        perror("lsh: open for output append redirection failed");
+                        exit(EXIT_FAILURE);
+                    }
+                    if (dup2(fd, STDERR_FILENO) == -1) {
+                        perror("lsh: dup2 for output append redirection failed");
+                        exit(EXIT_FAILURE);
+                    }
+                    close(fd);
+                    current->args[i] = NULL; // Terminate args before >>
+                }
             }
 
             execvp(current->args[0], current->args);

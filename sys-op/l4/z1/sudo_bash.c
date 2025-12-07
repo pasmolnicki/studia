@@ -10,26 +10,31 @@
 
 
 int main() {
+    // gcc -o sb sudo_bash.c
+    // sudo chown root:root sb
+    // sudo chmod u+s sb
+    // id
     
     pid_t pid = fork();
     if (pid == 0) {
-        // Child process, run bash with sudo privileges - because file
-        // has setuid bit set
-        execlp("bash", "bash", NULL);
+        // -p for preserve privileges
+        execlp("bash", "bash", "-p", NULL);
 
         // This will only executed if exec fails
         if (errno == ENOENT) {
-            fprintf(stderr, "lsh: command not found: %s\n", "bash");
+            fprintf(stderr, "command not found: %s\n", "bash");
         } else {
-            fprintf(stderr, "lsh: exec error: %s\n", strerror(errno));
+            fprintf(stderr, "exec error: %s\n", strerror(errno));
         }
 
         exit(1);
     } else if (pid > 0) {
-        while (waitpid(pid, NULL, 0) > 0);
+        while (wait(NULL) > 0);
     } else {
         perror("sudo_bash: fork failed\n");
     }
+
+    printf("Exiting sudo_bash\n");
 
     return 0;
 }
