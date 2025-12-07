@@ -11,11 +11,185 @@
 #include <termios.h>
 
 #define N_HISTORY 10
+#define MAX_ARGS 64
+#define MAX_COMMAND_LENGTH 256
 #define MAX_PATH 1024
 
+
+typedef struct Command {
+    char** args;
+    int length;
+    pid_t pid;
+    struct Command* next;
+} Command;
+
+typedef struct CommandList {
+    Command* head;
+    Command* tail;
+    int length;
+    bool is_background;
+    char* input;
+} CommandList;
+
 static atomic_char background_task_count = ATOMIC_VAR_INIT(0);
-static char history[N_HISTORY][256];
+static char history[N_HISTORY][MAX_COMMAND_LENGTH];
 static int history_count = 0;
+
+void safe_strcpy(char* dest, const char* src) {
+    (void)strncpy(dest, src, MAX_COMMAND_LENGTH - 1);
+    dest[MAX_COMMAND_LENGTH - 1] = '\0';
+}
+
+CommandList* create_command_list() {
+    CommandList* list = (CommandList*)calloc(1, sizeof(CommandList));
+    list->head = NULL;
+    list->tail = NULL;
+    list->length = 0;
+    list->is_background = false;
+    list->input = NULL;
+    return list;
+}
+
+void delete_command_list(CommandList* list) {
+    Command* current = list->head;
+    while (current != NULL) {
+        Command* next = current->next;
+        free(current->args);
+        free(current);
+        current = next;
+    }
+    free(list);
+}
+
+void print_command_list(CommandList* list) {
+    Command* current = list->head;
+    if (current == NULL) {
+        printf("Command list is empty.\n");
+        return;
+    }
+    if (list->is_background) {
+        printf("bg-mode\n");
+    }
+    while (current != NULL) {
+        for (int i = 0; i < current->length; i++) {
+            printf("%s ", current->args[i]);
+        }
+        printf("\n");
+        current = current->next;
+    }
+}
+
+void add_command(CommandList* list, char** args) {
+    Command* cmd = (Command*)calloc(1, sizeof(Command));
+    cmd->length = 0;
+    list->length++;
+
+    // Deep copy args
+    while (args[cmd->length] != NULL) {
+        cmd->length++;
+    }
+    cmd->args = (char**)calloc(cmd->length + 1, sizeof(char*));
+    for (int i = 0; i < cmd->length; i++) {
+        cmd->args[i] = strdup(args[i]);
+    }
+    cmd->args[cmd->length] = NULL;
+    cmd->next = NULL;
+
+    if (list->head == NULL) {
+        list->head = cmd;
+        list->tail = cmd;
+    } else {
+        list->tail->next = cmd;
+        list->tail = cmd;
+    }
+}
+
+CommandList* parse_command(const char* line) {
+    static char* args[MAX_ARGS];
+    char* token;
+    char* command_copy = strdup(line);
+    int index = 0;
+    CommandList* list = create_command_list();
+    list->input = strdup(line);
+
+    token = strtok(command_copy, " \n");
+    while (token != NULL && index < MAX_ARGS - 1) {
+        // Check if token is an environment variable
+        if (token[0] == '$') {
+            char* env_var = getenv(token + 1);
+            if (env_var != NULL) {
+                args[index++] = env_var;
+            } else {
+                args[index++] = token; // Keep original token if env var not found
+            }
+        } else if (strcmp(token, "|") == 0) {
+            args[index] = NULL; // Null-terminate current args
+            if (args[0] != NULL) {
+                add_command(list, args);
+            }
+            index = 0; // Reset index for next command
+        }
+        else {
+            args[index++] = token;
+        }
+
+        token = strtok(NULL, " \n");
+    }
+    args[index] = NULL;
+
+    // Add the last command if any
+    if (index > 0) {
+        if (strcmp(args[index - 1], "&") == 0) {
+            args[index - 1] = NULL; // Remove '&' from arguments
+            list->is_background = true;
+            atomic_fetch_add(&background_task_count, 1);
+        }
+
+        if (args[0] != NULL) {
+            add_command(list, args);
+        }
+    }
+
+    return list;
+}
+
+void handle_history_keys(char arrow, char* line, int* history_index) {
+    if (arrow == 'A') { // Up arrow
+        if (history_count > 0) {
+            for (size_t i = 0; i < strlen(line); i++) {
+                printf("\b \b");
+            }
+            safe_strcpy(line, history[*history_index % N_HISTORY]);
+            printf("%s", line);
+            if (*history_index > 0) {
+                (*history_index)--;
+            }
+        }
+    }
+    if (arrow == 'B') { // Down arrow
+        if (history_count > 0 && *history_index < history_count - 1) {
+            (*history_index)++;
+            for (size_t i = 0; i < strlen(line); i++) {
+                printf("\b \b");
+            }
+            safe_strcpy(line, history[*history_index % N_HISTORY]);
+            printf("%s", line);
+        } else {
+
+            for (size_t i = 0; i < strlen(line); i++) {
+                printf("\b \b");
+            }
+            line[0] = '\0'; // Clear line
+        }
+    }
+}
+
+void handle_escape_char(char* line, int* history_index) {
+    // Handle arrow keys for history navigation
+    getchar(); // Skip the '[' character
+    char arrow = getchar();
+    handle_history_keys(arrow, line, history_index);
+}
 
 char* get_input_line() {
     static char line[256];
@@ -32,50 +206,22 @@ char* get_input_line() {
             printf("\n");
             break; // End of line
         } else if (ch == 27) { // Escape character
-            // Handle arrow keys for history navigation
-            getchar(); // Skip the '[' character
-            char arrow = getchar();
-            if (arrow == 'A') { // Up arrow
-                if (history_count > 0) {
-                    // Clear current line
-                    for (size_t i = 0; i < strlen(line); i++) {
-                        printf("\b \b");
-                    }
-                    // Load last command from history
-                    strcpy(line, history[history_index % N_HISTORY]);
-                    printf("%s", line);
-                    if (history_index > 0) {
-                        history_index--;
-                    }
-                }
-            }
-            if (arrow == 'B') { // Down arrow
-                if (history_count > 0 && history_index < history_count - 1) {
-                    history_index++;
-                    // Clear current line
-                    for (size_t i = 0; i < strlen(line); i++) {
-                        printf("\b \b");
-                    }
-                    // Load next command from history
-                    strcpy(line, history[history_index % N_HISTORY]);
-                    printf("%s", line);
-                } else {
-                    // Clear current line
-                    for (size_t i = 0; i < strlen(line); i++) {
-                        printf("\033[D \033[D");
-                    }
-                    line[0] = '\0'; // Clear line
-                }
-            }
+            handle_escape_char(line, &history_index);
         } else if (ch == 127 || ch == 8) { // Backspace
             if (strlen(line) > 0) {
                 line[strlen(line) - 1] = '\0';
-                printf("\033[D \033[D"); // Move cursor back, print space, move back again
+                printf("\b \b"); // Move cursor back, print space, move back again
             }
         } else {
             line[strlen(line)] = ch;
             printf("%c", ch); // Echo the character
         }
+    }
+
+
+    // Ignore empty lines
+    if (strlen(line) == 0) {
+        return line;
     }
 
     // Store in history
@@ -91,39 +237,6 @@ char* get_input_line() {
     return line;
 }
 
-char** parse_command(const char* command) {
-    static char* args[64];
-    char* token;
-    char* command_copy = strdup(command);
-    int index = 0;
-
-    token = strtok(command_copy, " \n");
-    while (token != NULL && index < 63) {
-        // Check if token is a environment variable
-        if (token[0] == '$') {
-            char* env_var = getenv(token + 1);
-            if (env_var != NULL) {
-                args[index++] = env_var;
-            } else {
-                args[index++] = ""; // If env var not found, use empty string
-            }
-        } else {
-            args[index++] = token;
-        }
-
-        token = strtok(NULL, " \n");
-    }
-    args[index] = NULL;
-
-    // Check if the last argument is '&'
-    if (index > 0 && strcmp(args[index - 1], "&") == 0) {
-        args[index - 1] = NULL; // Remove '&' from arguments
-        atomic_fetch_add(&background_task_count, 1);
-    }
-
-    return args;
-}
-
 int exec_cd(char *arg) {
     static char lastdir[MAX_PATH] = "";
     char currentdir[MAX_PATH] = "";
@@ -137,7 +250,7 @@ int exec_cd(char *arg) {
         arg = getenv("HOME");
     } else if (strcmp(arg, "-") == 0) {
         if (lastdir[0] == '\0') {
-            fprintf(stderr, "lsh: cd: lastdir not set\n");
+            fprintf(stderr, "lsh: cd: OLDPWD not set\n");
             return -1;
         }
         arg = lastdir;
@@ -162,16 +275,108 @@ void zombie_handler(int signo) {
     while (waitpid(-1, NULL, WNOHANG) > 0);
 }
 
+bool is_builtin_command(char** args) {
+    return (strcmp(args[0], "cd") == 0 || strcmp(args[0], "history") == 0);
+}
+
+void execute_builtin_command(char** args) {
+    // Build-in commands
+    if (strcmp(args[0], "cd") == 0) {
+        exec_cd(args[1]);
+    }
+    if (strcmp(args[0], "history") == 0) {
+        int start = history_count > N_HISTORY ? history_count - N_HISTORY : 0;
+        for (int i = start; i < history_count; i++) {
+            printf("%d: %s\n", i + 1, history[i % N_HISTORY]);
+        }
+    }
+}
+
+void execute_commands(CommandList* list) {
+    // print_command_list(list);
+    Command* current = list->head;
+    int pipefds[2];
+    int prev_read_fd = -1;
+
+    while (current != NULL) {
+        bool is_last = (current->next == NULL);
+
+        // Create a pipe if not the last command
+        if (!is_last) {
+            if (pipe(pipefds) == -1) {
+                perror("lsh: pipe failed");
+                exit(EXIT_FAILURE);
+            }
+        }
+
+        // Fork a child process and set up pipes
+        pid_t pid = fork();
+        if (pid == 0) {
+            signal(SIGINT, SIG_DFL); // Restore default Ctrl+C behavior in child
+
+            if (prev_read_fd != -1) {
+                if (dup2(prev_read_fd, STDIN_FILENO) == -1) {
+                    perror("lsh: dup2 failed");
+                    exit(EXIT_FAILURE);
+                }
+                close(prev_read_fd);
+            }
+
+            if (!is_last) {
+                if (dup2(pipefds[1], STDOUT_FILENO) == -1) {
+                    perror("lsh: dup2 failed");
+                    exit(EXIT_FAILURE);
+                }
+                close(pipefds[0]);
+                close(pipefds[1]);
+            }
+
+            execvp(current->args[0], current->args);
+
+            // This will only executed if exec fails
+            if (errno == ENOENT) {
+                fprintf(stderr, "lsh: command not found: %s\n", current->args[0]);
+            } else {
+                fprintf(stderr, "lsh: exec error: %s\n", strerror(errno));
+            }
+
+            exit(EXIT_FAILURE);
+        } else if (pid < 0) {
+            perror("lsh: fork failed\n");
+            return;
+        }
+
+        current->pid = pid;
+        if (prev_read_fd != -1) {
+            close(prev_read_fd);
+        }
+
+        if (!is_last) {
+            close(pipefds[1]); // Close unused write end
+            prev_read_fd = pipefds[0];
+        }
+
+        current = current->next;
+    }
+
+    if (list->is_background) {
+        printf("[%d] %s\n", list->head->pid, list->input);
+    } else {
+        // Wait for all child processes to finish
+        while (wait(NULL) > 0);
+    }
+}
+
 int main() {
     // Don't allow Ctrl+C to terminate the shell
     signal(SIGINT, SIG_IGN);
-    signal(SIGCHLD, zombie_handler); // Handle terminated child processes
+    signal(SIGCHLD, zombie_handler);
 
     // Disable terminal buffering for immediate input processing
     struct termios oldt, newt;
     tcgetattr(STDIN_FILENO, &oldt);
     newt = oldt;
-    newt.c_lflag &= ~(ICANON | ECHO); // Disable canonical mode and echo
+    newt.c_lflag &= ~(ICANON | ECHO);
     tcsetattr(STDIN_FILENO, TCSANOW, &newt);
 
     while (1) {
@@ -185,50 +390,20 @@ int main() {
             break;
         }
 
-        char** args = parse_command(command);
-        if (args[0] == NULL) {
+        CommandList* list = parse_command(command);
+        if (list->length == 0) {
+            delete_command_list(list);
             continue; // Empty command
         }
 
-
-        // Build-in commands
-        if (strcmp(args[0], "cd") == 0) {
-            exec_cd(args[1]);
-            continue;
-        }
-        if (strcmp(args[0], "history") == 0) {
-            int start = history_count > N_HISTORY ? history_count - N_HISTORY : 0;
-            for (int i = start; i < history_count; i++) {
-                printf("%d: %s\n", i + 1, history[i % N_HISTORY]);
-            }
+        if (list->length == 1 && is_builtin_command(list->head->args)) {
+            execute_builtin_command(list->head->args);
+            delete_command_list(list);
             continue;
         }
 
-        // Create a child process to execute the command
-        pid_t pid = fork();
-        if (pid == 0) {
-            signal(SIGINT, SIG_DFL); // Restore default Ctrl+C behavior in child
-            execvp(args[0], args);
-
-            // This will only executed if exec fails
-            if (errno == ENOENT) {
-                fprintf(stderr, "lsh: command not found: %s\n", args[0]);
-            } else {
-                fprintf(stderr, "lsh: exec error: %s\n", strerror(errno));
-            }
-            // perror("lsh: exec failed\n");
-            exit(EXIT_FAILURE);
-        } else if (pid < 0) {
-            perror("lsh: fork failed\n");
-            break;
-        } else {
-            // Wait for all child processes to finish
-            if (atomic_load(&background_task_count) == 0) {
-                while(waitpid(pid, NULL, 0) > 0);
-            } else {
-                printf("[%d] %s\n", pid, command);
-            }
-        }
+        execute_commands(list);
+        delete_command_list(list);
     }
 
     // Restore terminal settings
