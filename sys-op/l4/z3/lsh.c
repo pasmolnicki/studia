@@ -112,6 +112,7 @@ CommandList* parse_command(const char* line) {
     int index = 0;
     CommandList* list = create_command_list();
     list->input = strdup(line);
+    memset(args, 0, sizeof(args));
 
     token = strtok(command_copy, " \n");
     while (token != NULL && index < MAX_ARGS - 1) {

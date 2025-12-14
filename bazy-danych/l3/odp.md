@@ -174,7 +174,7 @@ EXPLAIN SELECT * FROM Pracownicy WHERE pensja < 2000;
 EXPLAIN SELECT l.imie, l.nazwisko 
 FROM Ludzie l
 JOIN Pracownicy p ON l.id = p.osoba_id
-WHERE l.plec = 'M' AND p.zawod_id = 4 AND p.pensja > 10000;
+WHERE l.plec = 'M' AND z.nazwa = 'informatyk' AND p.pensja > 10000;
 
 
 SHOW INDEX FROM Ludzie;
