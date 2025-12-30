@@ -18,13 +18,15 @@ FUNC_MAPPINGS = {
     'c': 'min_balls_no_empty_bin',
     'd': 'min_balls_each_2_in_bin',
     'd-c': 'n_balls_from_1_to_2',
+    'l': 'max_load_d_after_n',
 }
 
 def load_simulation_data(sim_index: int) -> pd.DataFrame:
     file_path = os.path.join(SIM_OUTPUTS, f"outputs{sim_index}.csv")
     return pd.read_csv(file_path, sep=';', dtype={'n_bins': int, 'first_collision': int, 'n_empty_bins_after_n': int,
                                                   'min_balls_no_empty_bin': int, 'min_balls_each_2_in_bin': int,
-                                                  'n_balls_from_1_to_2': int})
+                                                  'n_balls_from_1_to_2': int,
+                                                  'max_load_d_after_n': int})
 
 
 def plot_with_mean(
@@ -44,10 +46,6 @@ def plot_with_mean(
 
     ax.set_xscale('linear')
     ax.set_yscale('linear')
-    # ax.set_xlabel('Ilość urn')
-    # ax.set_ylabel(f'Średnia {ylabel}')
-    # ax.set_title(title)
-    # ax.legend()
     ax.grid(True)
 
     if save_fig:
@@ -77,10 +75,6 @@ def plot_asymptotic_behavior(
 
     ax.set_xscale('linear')
     ax.set_yscale('linear')
-    # ax.set_xlabel('Ilość urn')
-    # ax.set_ylabel(ylabel)
-    # ax.set_title(title)
-    # ax.legend()
     ax.grid(True)
     if plot:
         plt.show()
@@ -174,12 +168,33 @@ def plot_n_balls_from_1_to_2(aggregated_data: pd.DataFrame, plot: bool = True, s
         best_fit_degree=1, plot=plot, save_fig=f'{save_fig}-r(n)-nln(lnn).png' if save_fig else None
     )
 
+def plot_max_load_d_after_n(aggregated_data: pd.DataFrame, plot: bool = True, save_fig: typing.Optional[str] = None, **kwargs):
+    d = kwargs.get('d', 2)
+    plot_with_mean(aggregated_data, 'max_load_d_after_n', '', f'Maksymalne obciążenie przy d={d} po wrzuceniu n kul',
+                   plot=plot, save_fig=f'{save_fig}-{d}.png' if save_fig else None)
+    
+    # L(n) / f1(n)
+    # f1(n) = ln(n) / ln(ln(n))
+    plot_asymptotic_behavior(
+        aggregated_data, 'max_load_d_after_n', '', 'L(n) / (ln(n) / ln(ln(n)))',
+        func=lambda n, v: v.to_numpy() / (np.log(n) / np.log(np.log(n))), label='L(n) / (ln(n) / ln(ln(n)))',
+        best_fit_degree=1, plot=plot, save_fig=f'{save_fig}-{d}-L(n)ln(ln(n))-ln(n).png' if save_fig else None
+    )
+    # L(n) / f2(n)
+    # f2(n) = ln(ln(n)) / ln(2)
+    plot_asymptotic_behavior(
+        aggregated_data, 'max_load_d_after_n', '', 'L(n) / (ln(ln(n)) / ln(2))',
+        func=lambda n, v: v.to_numpy() / (np.log(np.log(n)) / np.log(2)), label='L(n) / (ln(ln(n)) / ln(2))',
+        best_fit_degree=1, plot=plot, save_fig=f'{save_fig}-{d}-L(n)ln(2)-ln(ln(n)).png' if save_fig else None
+    )
+
 def parse_options() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Parse simulation results and generate plots.")
     parser.add_argument('--plot', action='store_true', default=False, help='Display plots.')
     parser.add_argument('--no-saving', action='store_true', default=False, help='Do not save figures to output directory.')
     parser.add_argument('--func', '-f', type=str, choices=FUNC_MAPPINGS.keys(), default=None,
                         help='Function to plot (u, b, c, d, d-c). If not provided, all functions will be plotted.')
+    parser.add_argument('--d', type=int, default=2, help='Value of d for max_load_d_after_n function (default: 2).')
     return parser.parse_args()
 
 def main():
@@ -208,8 +223,9 @@ def main():
             'min_balls_no_empty_bin': plot_min_balls_no_empty_bin,
             'min_balls_each_2_in_bin': plot_min_balls_each_2_in_bin,
             'n_balls_from_1_to_2': plot_n_balls_from_1_to_2,
+            'max_load_d_after_n': plot_max_load_d_after_n,
         }.get(func, plot_first_collision)(aggregated_data, plot=plot_flag, save_fig=
-                                          func if save_fig_flag else None)
+                                          func if save_fig_flag else None, **({'d': args.d} if func == 'max_load_d_after_n' else {}))
         print(f"Plotted function '{func}'")
 
 if __name__ == "__main__":
