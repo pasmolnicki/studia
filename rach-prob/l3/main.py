@@ -81,31 +81,33 @@ def plot_asymptotic_behavior(
 
 def plot_network_sim(plot: bool = False, save_fig: typing.Optional[str] = None):
     data = aggregate_data(load_network_outputs, p=0.1)
-    plot_with_mean(data, 'trials', '', 'Trials', plot=plot, save_fig=save_fig)
+    plot_with_mean(data, 'trials', '', 'Trials', plot=plot, 
+                   save_fig=f'{save_fig}-p-0-1.png' if save_fig else None)
     data = aggregate_data(load_network_outputs, p=0.5)
-    plot_with_mean(data, 'trials', '', 'Trials', plot=plot, save_fig=save_fig)
-
+    plot_with_mean(data, 'trials', '', 'Trials', plot=plot,
+                   save_fig=f'{save_fig}-p-0-5.png' if save_fig else None)
 
 def plot_insertion_sim(plot: bool = False, save_fig: typing.Optional[str] = None):
     data = aggregate_data(load_insertion_outputs)
     plot_with_mean(data, 'comparisons', '', 'Comparsions', plot=plot, save_fig=save_fig)
-    plot_with_mean(data, 'n_swaps', '', '# swaps', plot=plot, save_fig=save_fig)
+    plot_with_mean(data, 'n_swaps', '', '# swaps', plot=plot, 
+                   save_fig=f'{save_fig}-swap.png' if save_fig else None)
 
     plot_asymptotic_behavior(data, 'comparisons', 
-                             lambda n, v: v.to_numpy() / n, 
-                             plot=plot, save_fig=f'{save_fig}-cmp(n)-n.png')
+                             lambda n, v: v.to_numpy() / n, plot=plot, 
+                             save_fig=f'{save_fig}-cmp(n)-n.png' if save_fig else None)
 
     plot_asymptotic_behavior(data, 'comparisons', 
-                             lambda n, v: v.to_numpy() / n ** 2, 
-                             plot=plot, save_fig=f'{save_fig}-cmp(n)-n2.png')
+                             lambda n, v: v.to_numpy() / n ** 2, plot=plot, 
+                             save_fig=f'{save_fig}-cmp(n)-n2.png' if save_fig else None)
     
     plot_asymptotic_behavior(data, 'n_swaps', 
-                             lambda n, v: v.to_numpy() / n, 
-                             plot=plot, save_fig=f'{save_fig}-s(n)-n.png')
+                             lambda n, v: v.to_numpy() / n, plot=plot, 
+                             save_fig=f'{save_fig}-s(n)-n.png'if save_fig else None)
 
     plot_asymptotic_behavior(data, 'n_swaps', 
-                             lambda n, v: v.to_numpy() / n ** 2, 
-                             plot=plot, save_fig=f'{save_fig}-s(n)-n2.png')
+                             lambda n, v: v.to_numpy() / n ** 2, plot=plot, 
+                             save_fig=f'{save_fig}-s(n)-n2.png' if save_fig else None)
 
 def main():
     if not os.path.exists(NETWORK_OUTPUTS_FOLDER) or not os.path.exists(INSERTION_OUTPUTS_FOLDER):

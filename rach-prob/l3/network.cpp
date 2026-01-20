@@ -100,16 +100,6 @@ public:
     }
 };
 
-
-
-template <typename T>
-concept RandomAccessContainer = requires(T a, T b) {
-    { a < b } -> std::convertible_to<bool>;
-    { a = b } -> std::same_as<T&>;
-    { a[0] } -> std::convertible_to<typename T::value_type&>;
-    { a.size() } -> std::convertible_to<size_t>;
-};
-
 // Simulates a star topology network trial, with one node activating others
 // with probability p. Returns the number of trials (cycles) until all nodes are activated.
 [[nodiscard]] size_t 
