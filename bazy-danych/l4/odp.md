@@ -1,4 +1,3 @@
- 
 
 ## Zadanie 2
 
@@ -277,8 +276,7 @@ db.reviews.insertMany([
 Jaki wpływ na wstawianie/wyszukiwanie danyh ma przyjęta
 przez Ciebie metoda przechowywania informacji o recenzencie?
 
-Odp: Przechowywanie danych recenzenta jako zagnieżdżonego obiektu (`reviewer`) bezpośrednio w dokumencie recenzji (denormalizacja) upraszcza operację odczytu kompletnej recenzji, ponieważ nie wymaga dodatkowego zapytania (`$lookup`) do kolekcji użytkowników. Wszystkie potrzebne dane do wyświetlenia recenzji są dostępne w jednym dokumencie, co przyspiesza wyszukiwanie.
-Jednakże, ma to negatywny wpływ na aktualizację danych: zmiana nazwy użytkownika wymagałaby aktualizacji wszystkich jego recenzji, co jest operacją kosztowną. Wstawianie jest szybkie i proste, ale powoduje redundancję danych (powtarzanie nazwy użytkownika w każdej jego recenzji).
+Odp: Przechowywanie danych recenzenta jako zagnieżdżonego obiektu (`reviewer`) bezpośrednio w dokumencie recenzji upraszcza operację odczytu recenzji, ponieważ nie wymaga dodatkowego zapytania (`$lookup`) do kolekcji użytkowników. Jednakże zmiana nazwy użytkownika wymagałaby aktualizacji wszystkich jego recenzji, co nie jest optymalne w przypadku dużej liczby recenzji.
 
 
 ```js
