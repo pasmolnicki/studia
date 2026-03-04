@@ -1,0 +1,6 @@
+*/*
+!ada/main.adb
+!cpp/main.cpp
+!go/main.go
+!java/Main.java
+!haskell/main.ghc
