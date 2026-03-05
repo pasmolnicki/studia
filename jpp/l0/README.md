@@ -27,3 +27,25 @@ cd java
 javac Main.java
 java Main
 ```
+
+### LISP
+
+```sh
+clisp lisp/main.lisp
+```
+
+### OCaml
+
+```sh
+cd ocaml
+opam exec -- dune init proj hello
+cd hello
+opam exec -- dune build
+opam exec -- dune exec hello
+```
+
+### Prolog
+
+```sh
+swipl -s prolog/main.pl
+```

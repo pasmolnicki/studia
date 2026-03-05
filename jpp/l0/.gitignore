@@ -4,3 +4,6 @@
 !go/main.go
 !java/Main.java
 !haskell/main.ghc
+!lisp/main.lisp
+!smlnj/main.sml
+!prolog/main.pl
