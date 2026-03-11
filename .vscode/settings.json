@@ -113,4 +113,5 @@
         "/opt/javafx-sdk-17.0.15/lib/javafx.swing.jar",
         "/opt/javafx-sdk-17.0.15/lib/javafx.web.jar"
     ],
+    "cmake.ignoreCMakeListsMissing": true,
 }
