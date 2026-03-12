@@ -8,34 +8,24 @@
 #include <format>
 
 /*
-Zadanie 2. [15 p.]
-Zaimplementuj listę jednokierunkową cykliczną liczb całkowitych.
-Lista jest dostępna przez strukturę zawierającą liczbę elementów i wskaźnik do jednego z
-nich oraz liczbę elementów listy. Każdy element listy ma wskaźnik na następny element w
-cyklu.
-
-●   Zaimplementuj funkcje:
-        ○ insert(l, i) wstawiającą nowy element z liczbą i do listy l,
-        ○ merge(l1, l2) łączącą dwie listy l1, l2 i zademonstruj jej działanie dla
-        list długości 10 zawierających dwucyfrowe liczby nieujemne.
-●   Utwórz tablicę T zawierającą 10000 losowych liczb całkowitych z przedziału
-    I = [0, ..., 100000], a następnie wstaw te liczby do listy L. Następnie wyznacz średni
-    koszt tysiąca wyszukiwań losowych liczb z przedziału I na liście. (Przez "koszt"
-    rozumiemy ilość wykonywanych porównań między elementem wyszukiwanym a
-    elementami na liście.) Zbadaj dwa przypadki:
-        ○ wyszukiwanie liczb, które są na liście (wybieranych losowo z tablicy T),
-        ○ wyszukiwanie losowej liczby z I.
+Zadanie 3. [15 p.]
+    Zaimplementuj listę dwukierunkową cykliczną i wykonaj te same polecenia co w
+    poprzednim zadaniu. W tym przypadku, każdy element ma dodatkowo wskaźnik na
+    poprzedni element w cyklu. Przy badaniu kosztów losowych wyszukiwań, każde
+    wyszukiwanie na początku losowo decyduje w którym kierunku będzie się odbywać.
 */
 
 template <std::copyable T>
-class circular_list {
+class circular_linked_list {
 public:
     using value = T;
     using node = struct Node {
         value val{};
         std::shared_ptr<Node> next{nullptr};
+        std::shared_ptr<Node> prev{nullptr};
 
-        Node(const value& v) : val(v), next(nullptr) {}
+        Node(const value& v) : val(v), next(nullptr), prev(nullptr) {}
+        ~Node() { prev = nullptr; }
     };
     using node_ptr = std::shared_ptr<node>;
     using raw_node_ptr = node*;
@@ -58,7 +48,7 @@ public:
     class list_iterator {
         raw_node_ptr M_ptr;
     public:
-        using iterator_category = std::forward_iterator_tag;
+        using iterator_category = std::bidirectional_iterator_tag;
         using value_type = V;
         using pointer = raw_node_ptr;
         using reference = V&;
@@ -73,6 +63,8 @@ public:
 
         list_iterator& operator++() { M_ptr = M_ptr->next.get(); return *this; }
         list_iterator& operator++(int) { auto v = M_ptr; M_ptr = M_ptr->next.get(); return {v}; }
+        list_iterator& operator--() { M_ptr = M_ptr->prev.get(); return *this; }
+        list_iterator& operator--(int) { auto v = M_ptr; M_ptr = M_ptr->prev.get(); return {v}; }
 
         bool operator==(const list_iterator& other) const { return M_ptr == other.M_ptr; }
         reference operator*() { return M_ptr->val; }
@@ -81,13 +73,13 @@ public:
     typedef list_iterator<T> iterator;
     typedef list_iterator<const T> const_iterator;
 
-    circular_list() = default;
-    circular_list(const std::vector<T>& elems) {
+    circular_linked_list() = default;
+    circular_linked_list(const std::vector<T>& elems) {
         for (const auto& t : elems) {
             this->push(t);
         }
     }
-    ~circular_list() {
+    ~circular_linked_list() {
         if (M_head) {
             M_find_tail()->next = nullptr;
         }
@@ -97,6 +89,7 @@ public:
         if (!M_head) {
             M_head = std::make_shared<node>(elem);
             M_head->next = M_head;
+            M_head->prev = M_head;
             return;
         }
 
@@ -109,7 +102,7 @@ public:
         // ptr->next->next = M_head;
     }
 
-    void append(const circular_list& other) noexcept {
+    void append(const circular_linked_list& other) noexcept {
         auto it = other.begin();
         while (true) {
             this->push(*it);
@@ -146,9 +139,10 @@ void run_experiment(bool in_list = true) {
     std::random_device rd{};
     std::uniform_int_distribution<int> dist{0, max_dist};
     std::mt19937 gen{rd()};
+    std::bernoulli_distribution dir_dist(0.5);
 
     auto nums = generate_randoms(rd());
-    circular_list<int> list{nums};
+    circular_linked_list<int> list{nums};
 
     auto total_tries = 0ULL;
     for (int i = 0; i < N_LOOKUPS; i++) {
@@ -159,6 +153,7 @@ void run_experiment(bool in_list = true) {
         }
 
         // Find it
+        bool go_forward = dir_dist(gen) >= 0.5;
         auto it = list.begin();
         while (true) {
             total_tries++;
@@ -168,8 +163,14 @@ void run_experiment(bool in_list = true) {
                 break;
             }
             
+            if (go_forward) {
+                ++it;
+            } else {
+                --it;
+            }
+
             // End of search - made a cycle
-            if (++it == list.begin()) {
+            if (it == list.begin()) {
                 break;
             }
         }
@@ -181,6 +182,7 @@ void run_experiment(bool in_list = true) {
 
 
 int main() {
-    run_experiment(true);
-    run_experiment(false);
+    // run_experiment(true);
+    // run_experiment(false);
+    circular_linked_list<int> foo{{1, 2, 3, 5}};
 }
