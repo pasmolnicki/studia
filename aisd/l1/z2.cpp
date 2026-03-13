@@ -94,6 +94,7 @@ public:
     }
 
     void push(const value& elem) noexcept {
+        M_size++;
         if (!M_head) {
             M_head = std::make_shared<node>(elem);
             M_head->next = M_head;
@@ -117,6 +118,10 @@ public:
                 break;
             }
         }
+    }
+
+    std::size_t size() const {
+        return M_size;
     }
 
     iterator begin() {

@@ -22,10 +22,9 @@ public:
     using node = struct Node {
         value val{};
         std::shared_ptr<Node> next{nullptr};
-        std::shared_ptr<Node> prev{nullptr};
+        std::weak_ptr<Node> prev{};
 
-        Node(const value& v) : val(v), next(nullptr), prev(nullptr) {}
-        ~Node() { prev = nullptr; }
+        Node(const value& v) : val(v) {}
     };
     using node_ptr = std::shared_ptr<node>;
     using raw_node_ptr = node*;
@@ -35,11 +34,7 @@ private:
     std::size_t M_size{0};
 
     node_ptr M_find_tail() {
-        auto ptr = M_head;
-        while (ptr->next != M_head) {
-            ptr = ptr->next;
-        }
-        return ptr;
+        return M_head->prev.lock();
     }
 
 public:
@@ -63,8 +58,8 @@ public:
 
         list_iterator& operator++() { M_ptr = M_ptr->next.get(); return *this; }
         list_iterator& operator++(int) { auto v = M_ptr; M_ptr = M_ptr->next.get(); return {v}; }
-        list_iterator& operator--() { M_ptr = M_ptr->prev.get(); return *this; }
-        list_iterator& operator--(int) { auto v = M_ptr; M_ptr = M_ptr->prev.get(); return {v}; }
+        list_iterator& operator--() { M_ptr = M_ptr->prev.lock().get(); return *this; }
+        list_iterator& operator--(int) { auto v = M_ptr; M_ptr = M_ptr->prev.lock().get(); return {v}; }
 
         bool operator==(const list_iterator& other) const { return M_ptr == other.M_ptr; }
         reference operator*() { return M_ptr->val; }
@@ -86,6 +81,7 @@ public:
     }
 
     void push(const value& elem) noexcept {
+        M_size++;
         if (!M_head) {
             M_head = std::make_shared<node>(elem);
             M_head->next = M_head;
@@ -93,13 +89,31 @@ public:
             return;
         }
 
+        // H -> H
+        // H <- H
+        if ((M_size-1) == 1) {
+            // H -> N -> H
+            // H <- N <- H
+            M_head->next = std::make_shared<node>(elem);
+            M_head->prev = M_head->next;
+            M_head->next->next = M_head;
+            M_head->next->prev = M_head;
+            return;
+        }
+
+        // Before:
+        // H -> P -> A1 ... -> An -> H
+        // H <- P <- A1 ... <- An <- H
         auto p = M_head->next;
         M_head->next = std::make_shared<node>(elem);
         M_head->next->next = p;
+        M_head->next->prev = M_head;
+        p->prev = M_head->next;
 
-        // auto ptr = M_find_tail();
-        // ptr->next = std::make_shared<node>(elem);
-        // ptr->next->next = M_head;
+        // After:
+        //    (new)
+        // H -> N -> P -> A1 ... -> An -> H
+        // H <- N <- P <- A1 ... <- An <- H
     }
 
     void append(const circular_linked_list& other) noexcept {
@@ -110,6 +124,10 @@ public:
                 break;
             }
         }
+    }
+
+    std::size_t size() const {
+        return M_size;
     }
 
     iterator begin() {
@@ -182,7 +200,7 @@ void run_experiment(bool in_list = true) {
 
 
 int main() {
-    // run_experiment(true);
-    // run_experiment(false);
-    circular_linked_list<int> foo{{1, 2, 3, 5}};
+    run_experiment(true);
+    run_experiment(false);
+    // circular_linked_list<int> foo{{1, 2, 3, 5}};
 }
