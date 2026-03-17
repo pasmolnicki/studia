@@ -8,7 +8,7 @@ następujące zadania:
 */
 
 use std::{fs, path};
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 use rand::Rng;
 use rand::seq::SliceRandom;
 
@@ -130,46 +130,48 @@ pub fn load_data() -> Vec<Data> {
 }
 
 fn calc_distance(points: &Vec<(f32, f32)>) -> i32 {
+
     let mut total = 0i32;
-    for point in points {
-        let (x, y) = point;
-        total += (x.powf(2.0) + y.powf(2.0)).sqrt().round() as i32;
+    for i in 1..points.len() {
+        let (px, py) = points[i-1];
+        let (x, y) = points[i];
+        total += ((px - x).powf(2.0) + (py - y).powf(2.0)).sqrt().round() as i32;
     }
 
     total
 }
 
-fn run_signle_experiment(data: &Data, groups: i32, samples_per_group: i32, rng: &mut dyn Rng) -> Vec<ExpResult> {
-    let mut result = Vec::with_capacity(groups as usize);
-
+fn run_signle_experiment(data: &Data, groups: i32, samples_per_group: i32, rng: &mut dyn Rng) -> i32 {
     const MAX: i32 = ((1 << 31) as i32).wrapping_sub(1);
+    let mut result = 0i32;
 
-    for _group in 0..groups {
-        let mut res = ExpResult { 
-            name: data.name.clone(), points: Vec::new(), dist: 0 
-        };
+    for group in 0..groups {
 
-        let mut min_dist = MAX;
-        let mut min_points: Vec<(f32, f32)>;
+        let mut min = MAX;
         for _i in 0..samples_per_group {
             let mut points = data.points.clone();
             points.shuffle(rng);
 
             let distance = calc_distance(&points);
-            if distance < min_dist {
-                min_dist = distance;
-                min_points = points; // move points into min_points
-            }
+            min = std::cmp::min(min, distance);
         }
 
-        result.push(res);
+        result += (min - result) / (group + 1);
     }
 
     result
 }
 
 pub fn run_experiment() {
-    let data = load_data();
-    println!("{:?}", data[0]);
+    let data_vec = load_data();
+    let mut rng = rand::rng();
+
+    for data in data_vec.iter() {
+        std::println!("{}", data.name);
+        std::println!("groups = 100, samples = 10: {}", run_signle_experiment(data, 100, 10, &mut rng));
+        std::println!("groups = 20, samples = 50: {}", run_signle_experiment(data, 20, 50, &mut rng));
+        std::println!("groups = 1, samlples = 1000: {}", run_signle_experiment(data, 1, 1000, &mut rng));
+    }
+    
 }
 
