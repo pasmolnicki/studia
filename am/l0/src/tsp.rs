@@ -32,17 +32,38 @@ pub struct Data {
     pub tsp_type: String,
     pub dimension: i32,
     pub edge_weight_type: EdgeWeightType,
-    pub points: Vec<(f32, f32)>,
+    pub points: VecPoints,
 }
 
 #[derive(Debug)]
-struct ExpResult {
-    pub name: String,
+pub struct VecPoints {
     pub points: Vec<(f32, f32)>,
-    pub dist: i32,
 }
 
+impl VecPoints {
+    #[must_use]
+    pub fn new() -> Self {
+        Self { points: Vec::new() }
+    }
 
+    pub fn calc_distance(&self) -> i32 {
+        let points = &self.points;
+        let mut total = 0i32;
+        for i in 1..points.len() {
+            let (px, py) = points[i-1];
+            let (x, y) = points[i];
+            total += ((px - x).powf(2.0) + (py - y).powf(2.0)).sqrt().round() as i32;
+        }
+
+        total
+    }
+
+    pub fn permutation(&self, rng: &mut dyn Rng) -> Self {
+        let mut points = self.points.clone();
+        points.shuffle(rng);
+        Self { points }
+    }
+}
 
 const REL_PATH: &str = "./data/";
 
@@ -75,7 +96,7 @@ fn parse_file(file: &String) -> Data {
     let mut data: Data = Data { 
         name: String::new(), tsp_type: String::new(), 
         dimension: 0, edge_weight_type: EdgeWeightType::Eucl2d, 
-        points: Vec::new() 
+        points: VecPoints::new()
     };
 
     const TOKEN_LIST: [&str; 5] = [
@@ -109,7 +130,7 @@ fn parse_file(file: &String) -> Data {
                 }
                 let x = point_tokens[1].trim().parse::<f32>().unwrap();
                 let y = point_tokens[2].trim().parse::<f32>().unwrap();
-                data.points.push((x, y));
+                data.points.points.push((x, y));
             }
             break;
         }
@@ -129,33 +150,15 @@ pub fn load_data() -> Vec<Data> {
     data
 }
 
-fn calc_distance(points: &Vec<(f32, f32)>) -> i32 {
-
-    let mut total = 0i32;
-    for i in 1..points.len() {
-        let (px, py) = points[i-1];
-        let (x, y) = points[i];
-        total += ((px - x).powf(2.0) + (py - y).powf(2.0)).sqrt().round() as i32;
-    }
-
-    total
-}
-
-fn run_signle_experiment(data: &Data, groups: i32, samples_per_group: i32, rng: &mut dyn Rng) -> i32 {
+fn run_single_experiment(points: &Vec<VecPoints>, groups: i32, samples_per_group: i32) -> i32 {
     const MAX: i32 = ((1 << 31) as i32).wrapping_sub(1);
     let mut result = 0i32;
 
     for group in 0..groups {
-
         let mut min = MAX;
-        for _i in 0..samples_per_group {
-            let mut points = data.points.clone();
-            points.shuffle(rng);
-
-            let distance = calc_distance(&points);
-            min = std::cmp::min(min, distance);
+        for i in 0..samples_per_group {
+            min = std::cmp::min(min, points[(group * samples_per_group + i) as usize].calc_distance());
         }
-
         result += (min - result) / (group + 1);
     }
 
@@ -163,15 +166,21 @@ fn run_signle_experiment(data: &Data, groups: i32, samples_per_group: i32, rng: 
 }
 
 pub fn run_experiment() {
-    let data_vec = load_data();
+    let mut data_vec = load_data();
     let mut rng = rand::rng();
-
-    for data in data_vec.iter() {
-        std::println!("{}", data.name);
-        std::println!("groups = 100, samples = 10: {}", run_signle_experiment(data, 100, 10, &mut rng));
-        std::println!("groups = 20, samples = 50: {}", run_signle_experiment(data, 20, 50, &mut rng));
-        std::println!("groups = 1, samlples = 1000: {}", run_signle_experiment(data, 1, 1000, &mut rng));
-    }
     
+
+    for data in data_vec.iter_mut() {
+        std::println!("{}", data.name);
+
+        let mut permutations = Vec::with_capacity(1000);
+        for _i in 0..1000 {
+            permutations.push(data.points.permutation(&mut rng));
+        }
+
+        std::println!("groups = 100, samples = 10: {}", run_single_experiment(&permutations, 100, 10));
+        std::println!("groups = 20, samples = 50: {}", run_single_experiment(&permutations, 20, 50));
+        std::println!("groups = 1, samlples = 1000: {}", run_single_experiment(&permutations, 1, 1000));
+    }
 }
 
