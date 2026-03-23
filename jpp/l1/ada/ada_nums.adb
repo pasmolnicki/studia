@@ -72,27 +72,48 @@ package body Ada_Nums is
       b := B0 / G;
       c := C0 / G;
 
-      while b /= 0 loop
-         declare
-            Q: int := a / b;
-            Temp: int;
-         begin
-            Temp := X0 - Q * X1;
-            X0 := X1;
-            X1 := Temp;
+      declare
+         Orig_A: int := a;  -- Save normalized a before EGD modifies it
+         Orig_B: int := b;  -- Save normalized b before EGD modifies it
+      begin
+         while b /= 0 loop
+            declare
+               Q: int := a / b;
+               Temp: int;
+            begin
+               Temp := X0 - Q * X1;
+               X0 := X1;
+               X1 := Temp;
 
-            Temp := Y0 - Q * Y1;
-            Y0 := Y1;
-            Y1 := Temp;
+               Temp := Y0 - Q * Y1;
+               Y0 := Y1;
+               Y1 := Temp;
 
-            Temp := a mod b;
-            a := b;
-            b := Temp;
-         end;
-      end loop;
+               Temp := a mod b;
+               a := b;
+               b := Temp;
+            end;
+         end loop;
 
-      Result.X := X0 * c;
-      Result.Y := -Y0 * c;
+         X0 := X0 * c;
+         Y0 := -(Y0 * c);
+
+         -- Find natural number solution: x = x0 + (Orig_B)*K, y = y0 + (Orig_A)*K
+         for K in -10000 .. 10000 loop
+            declare
+               X: int := X0 + (Orig_B * int(K));
+               Y: int := Y0 + (Orig_A * int(K));
+            begin
+               if X > 0 and Y > 0 then
+                  Result.X := X;
+                  Result.Y := Y;
+                  return Result;
+               end if;
+            end;
+         end loop;
+      end;
+
+      -- no positive solution found
       return Result;
    end Diofant;
 

@@ -22,7 +22,7 @@ clean:
 	main_ada main_ada_c main_ada_rust main_ada.o main_ada.ali \
 	main_ada_rust.o main_ada_rust.ali b~* \
 	ada/*.ali ada/$(ADA_OBJS) $(ADA_LIB) ada/b~* \
-	nums_c_bindings.* nums_rust_bindings.*
+	nums_c_bindings.* nums_rust_bindings.* main_rust_c
 
 c-static: $(SRCS)
 # Compile the C library (as static) then the main program

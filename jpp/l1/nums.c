@@ -49,6 +49,9 @@ diofant_result_t diofant(int a, int b, int c) {
     b /= g;
     c /= g;
 
+    int orig_a = a; /* normalized a */
+    int orig_b = b; /* normalized b */
+
     int x0 = 1, y0 = 0;
     int x1 = 0, y1 = 1;
     while (b != 0) {
@@ -65,7 +68,23 @@ diofant_result_t diofant(int a, int b, int c) {
         y0 = y1;
         y1 = t;
     }
-    result.x = x0 * c;
-    result.y = -y0 * c;
+
+    /* particular solution */
+    x0 = x0 * c;
+    y0 = -y0 * c;
+
+    /* search parameter k so that x = x0 + orig_b*k, y = y0 + orig_a*k are > 0 */
+    int k;
+    for (k = -10000; k <= 10000; k++) {
+        int x = x0 + (orig_b * k);
+        int y = y0 + (orig_a * k);
+        if (x > 0 && y > 0) {
+            result.x = x;
+            result.y = y;
+            return result;
+        }
+    }
+
+    /* no positive solution found in range */
     return result;
 }

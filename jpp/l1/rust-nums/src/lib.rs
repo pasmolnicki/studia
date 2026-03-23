@@ -61,10 +61,12 @@ pub extern "C" fn diofant(a: i32, b: i32, c: i32) -> diofant_result_t {
     if c % g != 0 {
         return diofant_result_t { x: 0, y: 0 };
     }
-
     a /= g;
     b /= g;
     c /= g;
+
+    let orig_a = a;
+    let orig_b = b;
 
     let mut x0 = 1;
     let mut y0 = 0;
@@ -85,9 +87,16 @@ pub extern "C" fn diofant(a: i32, b: i32, c: i32) -> diofant_result_t {
         y0 = y_temp;
     }
 
-    let k = c / a;
-    diofant_result_t {
-        x: x0 * k,
-        y: -y0 * k,
+    x0 = x0 * c;
+    y0 = -y0 * c;
+
+    for k in -10000..=10000 {
+        let x = x0 + orig_b * k;
+        let y = y0 + orig_a * k;
+        if x > 0 && y > 0 {
+            return diofant_result_t { x, y };
+        }
     }
+
+    diofant_result_t { x: 0, y: 0 }
 }
