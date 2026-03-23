@@ -66,6 +66,6 @@ diofant_result_t diofant(int a, int b, int c) {
         y1 = t;
     }
     result.x = x0 * c;
-    result.y = y0 * c;
+    result.y = -y0 * c;
     return result;
 }

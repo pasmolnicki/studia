@@ -1,6 +1,6 @@
 #pragma once
 
-#define LIBRARY_API "RUST"
+#define LIBRARY_API "C"
 
 int gcd(int, int);
 int min_divider(int);

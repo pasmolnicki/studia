@@ -51,6 +51,8 @@ pub struct diofant_result_t {
 #[unsafe(no_mangle)]
 /// Solves the eqation ax - by = c
 pub extern "C" fn diofant(a: i32, b: i32, c: i32) -> diofant_result_t {
+    println!("Rust: a = {}, b = {}, c = {}", a, b, c);
+
     let mut a = a;
     let mut b = b;
     let mut c = c;

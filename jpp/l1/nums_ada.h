@@ -1,8 +1,12 @@
 #pragma once
 
-#define LIBRARY_API "RUST"
+#define LIBRARY_API "ADA"
+#define API_ADA
 
-// Rust functions exported with #[no_mangle] and extern "C"
+// Ada functions exported with pragma Export and C calling convention
+extern void numsinit(void);
+extern void numsfinal(void);
+
 extern int gcd(int a, int b);
 extern int min_divider(int n);
 extern int totient(int n);
@@ -13,4 +17,3 @@ typedef struct {
 } diofant_result_t;
 
 extern diofant_result_t diofant(int a, int b, int c);
-
