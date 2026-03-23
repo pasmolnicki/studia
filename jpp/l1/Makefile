@@ -13,7 +13,7 @@ ADA_ALI = $(ADA_NUMS:.adb=.ali)
 ADA_LIB = libada_nums.a
 
 RUST_LIB = rust-nums/target/release/librust_nums.a
-RUST_LDFLAGS = -Lrust-nums/target/release -lnums
+RUST_LDFLAGS = -Lrust-nums/target/release -lrust_nums
 
 all: $(TARGET)
 
@@ -22,63 +22,92 @@ clean:
 	main_ada main_ada_c main_ada_rust main_ada.o main_ada.ali \
 	main_ada_rust.o main_ada_rust.ali b~* \
 	ada/*.ali ada/$(ADA_OBJS) $(ADA_LIB) ada/b~* \
-	nums_c_bindings.* nums_rust_bindings.* main_rust_c
+	nums_c_bindings.* nums_rust_bindings.* \
+	main_rust_combined main_c_combined main_ada_combined \
+	libada_nums.so 
 
-c-static: $(SRCS)
+c-static:
 # Compile the C library (as static) then the main program
 	$(CC) -c -o nums.o nums.c
 	ar rcs $(STATIC_TARGET) nums.o
-	$(CC) main.c -o main $(LDFLAGS) $(FLAGS)
 
 
 c-shared: main.c $(SRCS)
 # Compile the C library as shared then the main program
 	$(CC) -fPIC -c -o nums.o nums.c
 	$(CC) -shared -o $(SHRD_TARGET) nums.o
-	$(CC) main.c -o main $(LDFLAGS)
 
-c-rust-link: rust-nums/target/release/libnums.a
-#	Compile the rust library
+# Build Rust dynamic library
+rust-shared:
 	cd rust-nums && cargo build --release && cd ..
-#	Compile the main program
-	$(CC) main.c -o main $(RUST_LDFLAGS) $(FLAGS)
 
-c-ada-link: ada/$(ADA_NUMS)
-#	Compile the ada library
+# Build Ada dynamic library (produces libada_nums.so)
+ada-shared: nums.c
+# compile Ada unit and produce object files
 	gnatmake -c ada/$(ADA_NUMS)
-	mv $(ADA_ALI) ada/$(ADA_ALI)
-	mv $(ADA_OBJS) ada/$(ADA_OBJS)
+	mv ada_nums.ali ada/ada_nums.ali
+	mv ada_nums.o ada/ada_nums.o
 	gnatbind -Lnums ada/ada_nums
-	gcc -c b~$(ADA_NUMS) -o ada/b~$(ADA_OBJS)
-	ar rcs $(ADA_LIB) ada/$(ADA_OBJS) ada/b~$(ADA_OBJS)
-# 	rm -rf ada/nums.ali ada/b~nums.ali b~*
-#	Compile the main program
-	$(CC) main.c -o main -L. -lada_nums -lgnat $(FLAGS)
+	gcc -fPIC -c b~ada_nums.adb -o ada/b~ada_nums.o
+# create shared library linking GNAT runtime
+	gcc -shared -o libada_nums.so ada/ada_nums.o ada/b~ada_nums.o -lgnat -lgcc -lm
 
-ada-rust-link: rust-nums/target/release/libnums.a
-#	Compile the rust library
+# Build all shared libs
+build-shared: c-shared rust-shared ada-shared
+	@echo "Built shared libraries: libnums.so, librust_nums.so (in rust-nums/target/release), libada_nums.so"
+
+# c-link: build Ada then Rust; don't require stale rust artifact path
+c-link: ada/$(ADA_NUMS)
+# Build C library
+	$(CC) -c -o nums.o nums.c
+	ar rcs $(STATIC_TARGET) nums.o
+# Build Rust library
 	cd rust-nums && cargo build --release && cd ..
-#	Compile and link the Ada program with Rust bindings
-	gnatmake -Iada main_ada_rust -o main_ada_rust -largs $(RUST_LDFLAGS) -lgnat
+# Build Ada library
+	gnatmake -c ada/$(ADA_NUMS)
+	mv ada_nums.ali ada/ada_nums.ali
+	mv ada_nums.o ada/ada_nums.o
+	gnatbind -Lnums ada/ada_nums
+	gcc -c b~ada_nums.adb -o ada/b~ada_nums.o
+	ar rcs $(ADA_LIB) ada/ada_nums.o ada/b~ada_nums.o
+# Compile C main linking Rust (rust_ wrappers) and Ada (ada_ wrappers)
+	$(CC) main.c -o main_c_combined -Lrust-nums/target/release -lrust_nums -L. -lnums -lada_nums -lgnat
 
-ada-c-link: nums.c
-#	Compile the C library
+rust-link: ada/$(ADA_NUMS) nums.c
+# Build C library
 	$(CC) -c -o nums.o nums.c
 	ar rcs $(STATIC_TARGET) nums.o
-#	Compile and link the Ada program with C bindings
-	gnatmake -Iada main_ada -o main_ada_c -largs -L. -lnums -lgnat
+# Build Ada library
+	gnatmake -c ada/$(ADA_NUMS)
+	mv ada_nums.ali ada/ada_nums.ali
+	mv ada_nums.o ada/ada_nums.o
+	gnatbind -Lnums ada/ada_nums
+	gcc -c b~ada_nums.adb -o ada/b~ada_nums.o
+	ar rcs $(ADA_LIB) ada/ada_nums.o ada/b~ada_nums.o
+# Build Rust main linking C and Ada (link GNAT runtime)
+	rustc main.rs -o main_rust_combined -l static=nums -L. -l static=ada_nums -L. -l gnat
 
-ada-link: main.adb
-#	Compile and link the Ada program with C and Rust bindings
+ada-link: nums.c
+# Build C library
 	$(CC) -c -o nums.o nums.c
 	ar rcs $(STATIC_TARGET) nums.o
+# Build Rust library
 	cd rust-nums && cargo build --release && cd ..
-#	Compile and link the Ada program with C and Rust bindings
-	gnatmake -Iada main_ada -o main_ada -largs -L. -lnums $(RUST_LDFLAGS) -lgnat
+# Build and link Ada main with C and Rust
+	gnatmake -Iada main_ada -o main_ada_combined -largs -L. -lnums -Lrust-nums/target/release -lrust_nums -lgnat
 
-rust-c-link: main.rs
-#	Compile the C library
+
+python-link: tests/python_test_runner.py
+# Build C library
 	$(CC) -c -o nums.o nums.c
-	ar rcs $(STATIC_TARGET) nums.o
-#	Compile the Rust program (main.rs) with C bindings
-	rustc main.rs -o main_rust_c -l static=nums -L.
+	$(CC) -shared -o $(SHRD_TARGET) nums.o
+# Build Rust library
+	cd rust-nums && cargo build --release && cd ..
+# Build Ada library
+	gnatmake -c ada/$(ADA_NUMS)
+	mv ada_nums.ali ada/ada_nums.ali
+	mv ada_nums.o ada/ada_nums.o
+	gnatbind -Lnums ada/ada_nums
+	gcc -fPIC -c b~ada_nums.adb -o ada/b~ada_nums.o
+# create shared library linking GNAT runtime
+	gcc -shared -o libada_nums.so ada/ada_nums.o ada/b~ada_nums.o -lgnat -lgcc -lm

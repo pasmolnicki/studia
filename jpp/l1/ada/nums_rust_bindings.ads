@@ -3,14 +3,15 @@ with Interfaces.C; use Interfaces.C;
 package Nums_Rust_Bindings is 
     pragma Pure;
 
-    function Gcd (A: int; B: int) return int
-        with Import => True, Convention => C, External_Name => "gcd";
+    -- Bindings to Rust wrappers (rust_ prefix)
+    function Rust_Gcd (A: int; B: int) return int
+        with Import => True, Convention => C, External_Name => "rust_gcd";
 
-    function Min_Divider (N: int) return int
-        with Import => True, Convention => C, External_Name => "min_divider";
+    function Rust_Min_Divider (N: int) return int
+        with Import => True, Convention => C, External_Name => "rust_min_divider";
 
-    function Totient (N: int) return int
-        with Import => True, Convention => C, External_Name => "totient";
+    function Rust_Totient (N: int) return int
+        with Import => True, Convention => C, External_Name => "rust_totient";
 
     type Diofant_Result is record
         X: int := 0;
@@ -18,7 +19,7 @@ package Nums_Rust_Bindings is
     end record
         with Convention => C;
 
-    function Diofant (A0: int; B0: int; C0: int) return Diofant_Result
-        with Import => True, Convention => C, External_Name => "diofant";
+    function Rust_Diofant (A0: int; B0: int; C0: int) return Diofant_Result
+        with Import => True, Convention => C, External_Name => "rust_diofant";
 
 end Nums_Rust_Bindings;

@@ -1,9 +1,6 @@
 
-#[unsafe(no_mangle)]
-pub extern "C" fn gcd(a: i32, b: i32) -> i32 {
-    let mut a = a;
-    let mut b = b;
-
+// Internal Rust implementations (not exported with C symbols)
+pub fn gcd_impl(mut a: i32, mut b: i32) -> i32 {
     while b != 0 {
         let temp = b;
         b = a % b;
@@ -12,8 +9,7 @@ pub extern "C" fn gcd(a: i32, b: i32) -> i32 {
     a
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn min_divider(n: i32) -> i32 {
+pub fn min_divider_impl(n: i32) -> i32 {
     for i in 2..=n {
         if n % i == 0 {
             return i;
@@ -22,9 +18,7 @@ pub extern "C" fn min_divider(n: i32) -> i32 {
     n
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn totient(n: i32) -> i32 {
-    let mut n = n;
+pub fn totient_impl(mut n: i32) -> i32 {
     let mut result = n;
     let mut p = 2;
     while p * p <= n {
@@ -48,15 +42,16 @@ pub struct diofant_result_t {
     pub y: i32,
 }
 
-#[unsafe(no_mangle)]
-/// Solves the eqation ax - by = c
-pub extern "C" fn diofant(a: i32, b: i32, c: i32) -> diofant_result_t {
+pub fn diofant_impl(a_in: i32, b_in: i32, c_in: i32) -> diofant_result_t {
+    let a = a_in;
+    let b = b_in;
+    let c = c_in;
     println!("Rust: a = {}, b = {}, c = {}", a, b, c);
 
     let mut a = a;
     let mut b = b;
     let mut c = c;
-    let g = gcd(a, b);
+    let g = gcd_impl(a, b);
 
     if c % g != 0 {
         return diofant_result_t { x: 0, y: 0 };
@@ -100,3 +95,31 @@ pub extern "C" fn diofant(a: i32, b: i32, c: i32) -> diofant_result_t {
 
     diofant_result_t { x: 0, y: 0 }
 }
+
+/* Small C ABI wrappers with distinct symbols so programs can link multiple libraries
+   without symbol collisions. */
+// For static:
+// #[export_name = "rust_gcd"]
+#[no_mangle]
+pub extern "C" fn rust_gcd(a: i32, b: i32) -> i32 {
+    gcd_impl(a, b)
+}
+
+#[export_name = "rust_min_divider"]
+#[no_mangle]
+pub extern "C" fn rust_min_divider(n: i32) -> i32 {
+    min_divider_impl(n)
+}
+
+#[export_name = "rust_totient"]
+#[no_mangle]
+pub extern "C" fn rust_totient(n: i32) -> i32 {
+    totient_impl(n)
+}
+
+#[export_name = "rust_diofant"]
+#[no_mangle]
+pub extern "C" fn rust_diofant(a: i32, b: i32, c: i32) -> diofant_result_t {
+    diofant_impl(a, b, c)
+}
+

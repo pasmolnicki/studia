@@ -117,4 +117,25 @@ package body Ada_Nums is
       return Result;
    end Diofant;
 
+   -- Ada wrappers exported with ada_ prefix
+   function Ada_Gcd (A: int; B: int) return int is
+   begin
+      return Gcd(A, B);
+   end Ada_Gcd;
+
+   function Ada_Min_Divider (N: int) return int is
+   begin
+      return Min_Divider(N);
+   end Ada_Min_Divider;
+
+   function Ada_Totient (N: int) return int is
+   begin
+      return Totient(N);
+   end Ada_Totient;
+
+   function Ada_Diofant (A0: int; B0: int; C0: int) return Diofant_Result is
+   begin
+      return Diofant(A0, B0, C0);
+   end Ada_Diofant;
+
 end Ada_Nums;
