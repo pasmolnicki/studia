@@ -1,6 +1,6 @@
 with Interfaces.C; use Interfaces.C;
 
-package Nums is 
+package Ada_Nums is 
     function Gcd (A: int; B: int) return int;
     function Min_Divider (N: int) return int;
     function Totient (N: int) return int;
@@ -13,9 +13,8 @@ package Nums is
 
     function Diofant (A0: int; B0: int; C0: int) return Diofant_Result;
 
-
     pragma Export (C, Gcd, "gcd");
     pragma Export (C, Min_Divider, "min_divider");
     pragma Export (C, Totient, "totient");
     pragma Export (C, Diofant, "diofant");
-end Nums;
+end Ada_Nums;

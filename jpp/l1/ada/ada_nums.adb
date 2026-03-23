@@ -2,7 +2,7 @@ with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Integer_Text_IO; use Ada.Integer_Text_IO;
 with Interfaces.C; use Interfaces.C;
 
-package body Nums is
+package body Ada_Nums is
    
    function Gcd (A: int; B: int) return int is 
       X: int := A;
@@ -96,4 +96,4 @@ package body Nums is
       return Result;
    end Diofant;
 
-end Nums;
+end Ada_Nums;

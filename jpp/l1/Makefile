@@ -7,11 +7,22 @@ LDFLAGS = -L. -lnums
 SRCS = nums.c
 OBJS = $(SRCS:.c=.o)
 
+ADA_NUMS = ada_nums.adb
+ADA_OBJS = $(ADA_NUMS:.adb=.o)
+ADA_ALI = $(ADA_NUMS:.adb=.ali)
+ADA_LIB = libada_nums.a
+
+RUST_LIB = rust-nums/target/release/librust_nums.a
+RUST_LDFLAGS = -Lrust-nums/target/release -lnums
+
 all: $(TARGET)
 
 clean:
 	rm -f $(OBJS) $(TARGET) $(SHRD_TARGET) $(STATIC_TARGET) main \
-	ada/nums.o ada/b~nums.o ada/libnums.a ada/nums.ali ada/b~nums.ali ada/b~* b~*
+	main_ada main_ada_c main_ada_rust main_ada.o main_ada.ali \
+	main_ada_rust.o main_ada_rust.ali b~* \
+	ada/*.ali ada/$(ADA_OBJS) $(ADA_LIB) ada/b~* \
+	nums_c_bindings.* nums_rust_bindings.*
 
 c-static: $(SRCS)
 # Compile the C library (as static) then the main program
@@ -26,21 +37,48 @@ c-shared: main.c $(SRCS)
 	$(CC) -shared -o $(SHRD_TARGET) nums.o
 	$(CC) main.c -o main $(LDFLAGS)
 
-
-rust-link: rust-nums/target/release/libnums.a
+c-rust-link: rust-nums/target/release/libnums.a
 #	Compile the rust library
 	cd rust-nums && cargo build --release && cd ..
 #	Compile the main program
-	$(CC) main.c -o main -Lrust-nums/target/release -lnums $(FLAGS)
+	$(CC) main.c -o main $(RUST_LDFLAGS) $(FLAGS)
 
-ada-link: ada/nums.adb
+c-ada-link: ada/$(ADA_NUMS)
 #	Compile the ada library
-	gnatmake -c ada/nums.adb
-	mv nums.ali ada/nums.ali
-	mv nums.o ada/nums.o
-	gnatbind -Lnums ada/nums
-	gcc -c b~nums.adb -o ada/b~nums.o
-	ar rcs libnums.a ada/nums.o ada/b~nums.o
+	gnatmake -c ada/$(ADA_NUMS)
+	mv $(ADA_ALI) ada/$(ADA_ALI)
+	mv $(ADA_OBJS) ada/$(ADA_OBJS)
+	gnatbind -Lnums ada/ada_nums
+	gcc -c b~$(ADA_NUMS) -o ada/b~$(ADA_OBJS)
+	ar rcs $(ADA_LIB) ada/$(ADA_OBJS) ada/b~$(ADA_OBJS)
 # 	rm -rf ada/nums.ali ada/b~nums.ali b~*
 #	Compile the main program
-	$(CC) main.c -o main -L. -lnums -lgnat $(FLAGS)
+	$(CC) main.c -o main -L. -lada_nums -lgnat $(FLAGS)
+
+ada-rust-link: rust-nums/target/release/libnums.a
+#	Compile the rust library
+	cd rust-nums && cargo build --release && cd ..
+#	Compile and link the Ada program with Rust bindings
+	gnatmake -Iada main_ada_rust -o main_ada_rust -largs $(RUST_LDFLAGS) -lgnat
+
+ada-c-link: nums.c
+#	Compile the C library
+	$(CC) -c -o nums.o nums.c
+	ar rcs $(STATIC_TARGET) nums.o
+#	Compile and link the Ada program with C bindings
+	gnatmake -Iada main_ada -o main_ada_c -largs -L. -lnums -lgnat
+
+ada-link: main.adb
+#	Compile and link the Ada program with C and Rust bindings
+	$(CC) -c -o nums.o nums.c
+	ar rcs $(STATIC_TARGET) nums.o
+	cd rust-nums && cargo build --release && cd ..
+#	Compile and link the Ada program with C and Rust bindings
+	gnatmake -Iada main_ada -o main_ada -largs -L. -lnums $(RUST_LDFLAGS) -lgnat
+
+rust-c-link: main.rs
+#	Compile the C library
+	$(CC) -c -o nums.o nums.c
+	ar rcs $(STATIC_TARGET) nums.o
+#	Compile the Rust program (main.rs) with C bindings
+	rustc main.rs -o main_rust_c -l static=nums -L.
