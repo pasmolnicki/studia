@@ -36,4 +36,3 @@ crate-type = ["cdylib"]
 make python-link
 python3 tests/python_test_runner.py
 ```
-

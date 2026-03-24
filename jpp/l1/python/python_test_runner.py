@@ -4,7 +4,7 @@ import subprocess
 import sys
 import os
 # Ensure tests package path is importable when running from repo root
-sys.path.insert(0, os.path.join(os.getcwd(), 'tests'))
+sys.path.insert(0, os.path.join(os.getcwd(), 'python'))
 import c_wrapper, rust_wrapper, ada_wrapper
 
 def run(cmd):

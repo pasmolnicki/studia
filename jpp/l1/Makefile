@@ -97,7 +97,7 @@ ada-link: nums.c
 	gnatmake -Iada main_ada -o main_ada_combined -largs -L. -lnums -Lrust-nums/target/release -lrust_nums -lgnat
 
 
-python-link: tests/python_test_runner.py
+python-link: python/python_test_runner.py
 # Build C library
 	$(CC) -c -o nums.o nums.c
 	$(CC) -shared -o $(SHRD_TARGET) nums.o
