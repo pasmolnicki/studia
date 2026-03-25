@@ -19,20 +19,15 @@ pub fn min_divider_impl(n: i32) -> i32 {
 }
 
 pub fn totient_impl(mut n: i32) -> i32 {
-    let mut result = n;
+    let mut result = 1;
     let mut p = 2;
-    while p * p <= n {
-        if n % p == 0 {
-            while n % p == 0 {
-                n /= p;
-            }
-            result -= result / p;
+    while p <= n {
+        if gcd_impl(p, n) == 1 {
+            result += 1;
         }
         p += 1;
     }
-    if n > 1 {
-        result -= result / n;
-    }
+
     result
 }
 
@@ -42,58 +37,47 @@ pub struct diofant_result_t {
     pub y: i32,
 }
 
-pub fn diofant_impl(a_in: i32, b_in: i32, c_in: i32) -> diofant_result_t {
-    let a = a_in;
-    let b = b_in;
-    let c = c_in;
-    println!("Rust: a = {}, b = {}, c = {}", a, b, c);
+/// Extended Euclidean Algorithm
+/// Returns (gcd, x, y) such that ax + by = gcd
+fn extended_gcd(a: i32, b: i32) -> (i32, i32, i32) {
+    if a == 0 {
+        return (b, 0, 1);
+    }
+    let (gcd, x1, y1) = extended_gcd(b % a, a);
+    
+    let x = y1 - (b / a) * x1;
+    let y = x1;
+    
+    (gcd, x, y)
+}
 
-    let mut a = a;
-    let mut b = b;
-    let mut c = c;
-    let g = gcd_impl(a, b);
+fn diofant_impl(a: i32, b: i32, c: i32) -> diofant_result_t {
+    let (g, x0, y0) = extended_gcd(a, b);
 
+    // Check if solution exists
     if c % g != 0 {
         return diofant_result_t { x: 0, y: 0 };
     }
-    a /= g;
-    b /= g;
-    c /= g;
 
-    let orig_a = a;
-    let orig_b = b;
+    // Scale to c and account for the minus sign (ax - by = c)
+    let mut x = x0 * (c / g);
+    let mut y = -y0 * (c / g);
 
-    let mut x0 = 1;
-    let mut y0 = 0;
-    let mut x1 = 0;
-    let mut y1 = 1;
+    let step_x = b / g;
+    let step_y = a / g;
 
-    while b != 0 {
-        let q = a / b;
-        let r = a % b;
-        a = b;
-        b = r;
-
-        let x_temp = x1;
-        let y_temp = y1;
-        x1 = x0 - q * x1;
-        y1 = y0 - q * y1;
-        x0 = x_temp;
-        y0 = y_temp;
+    // Shift to find smallest non-negative x and y
+    while x < 0 || y < 0 {
+        x += step_x;
+        y += step_y;
     }
 
-    x0 = x0 * c;
-    y0 = -y0 * c;
-
-    for k in -10000..=10000 {
-        let x = x0 + orig_b * k;
-        let y = y0 + orig_a * k;
-        if x > 0 && y > 0 {
-            return diofant_result_t { x, y };
-        }
+    while x - step_x >= 0 && y - step_y >= 0 {
+        x -= step_x;
+        y -= step_y;
     }
 
-    diofant_result_t { x: 0, y: 0 }
+    diofant_result_t { x, y }
 }
 
 /* Small C ABI wrappers with distinct symbols so programs can link multiple libraries

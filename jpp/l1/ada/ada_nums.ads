@@ -11,7 +11,7 @@ package Ada_Nums is
     end record;
     pragma Convention (C, Diofant_Result);
 
-    function Diofant (A0: int; B0: int; C0: int) return Diofant_Result;
+    function Diofant (A: int; B: int; C: int) return Diofant_Result;
 
     -- wrappers exported under ada_ prefix to avoid symbol collisions
     function Ada_Gcd (A: int; B: int) return int;

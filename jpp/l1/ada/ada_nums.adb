@@ -33,88 +33,71 @@ package body Ada_Nums is
    end Min_Divider;
 
    function Totient (N: int) return int is
-      Result: int := N;
-      I: int := 2;
-      M: int := N;
+      Result: int := 0;
+      I: int := 1;
    begin
-      while I * I <= M loop
-         if M mod I = 0 then
-            while M mod I = 0 loop
-               M := M / I;
-            end loop;
-            Result := Result - (Result / I);
+      while I <= N loop
+         if Gcd(I, N) = 1 then
+            Result := Result + 1;
          end if;
          I := I + 1;
       end loop;
-
-      if M > 1 then
-         Result := Result - (Result / M);
-      end if;
       return Result;
    end Totient;
 
-   function Diofant (A0: int; B0: int; C0: int) return Diofant_Result is
-      Result: Diofant_Result;
-      G: int := Gcd(A0, B0);
-      X0: int := 1;
-      Y0: int := 0;
-      X1: int := 0;
-      Y1: int := 1;
-      a: int := A0;
-      b: int := B0;
-      c: int := C0;
+   -- Extended Euclidean Algorithm
+   -- In Ada, we use 'out' parameters to return multiple values
+   procedure Extended_GCD (A, B : int; G, X, Y : out int) is
+      X1, Y1 : int;
+      Temp_G : int;
    begin
-      if C mod G /= 0 then
-         return Result; -- No solutions
+      if A = 0 then
+         G := B;
+         X := 0;
+         Y := 1;
+         return;
       end if;
 
-      a := A0 / G;
-      b := B0 / G;
-      c := C0 / G;
+      Extended_GCD (B mod A, A, Temp_G, X1, Y1);
+      
+      G := Temp_G;
+      X := Y1 - (B / A) * X1;
+      Y := X1;
+   end Extended_GCD;
 
-      declare
-         Orig_A: int := a;  -- Save normalized a before EGD modifies it
-         Orig_B: int := b;  -- Save normalized b before EGD modifies it
-      begin
-         while b /= 0 loop
-            declare
-               Q: int := a / b;
-               Temp: int;
-            begin
-               Temp := X0 - Q * X1;
-               X0 := X1;
-               X1 := Temp;
+   function Diofant (A, B, C : int) return Diofant_Result is
+      G, X0, Y0 : int;
+      X, Y      : int;
+      Step_X    : int;
+      Step_Y    : int;
+   begin
+      Extended_GCD (A, B, G, X0, Y0);
 
-               Temp := Y0 - Q * Y1;
-               Y0 := Y1;
-               Y1 := Temp;
+      -- Check if a solution exists (c must be divisible by gcd(a, b))
+      if C mod G /= 0 then
+         return (X => -1, Y => -1);
+      end if;
 
-               Temp := a mod b;
-               a := b;
-               b := Temp;
-            end;
-         end loop;
+      -- Initial solution for ax - by = c
+      X := X0 * (C / G);
+      Y := -Y0 * (C / G);
 
-         X0 := X0 * c;
-         Y0 := -(Y0 * c);
+      Step_X := B / G;
+      Step_Y := A / G;
 
-         -- Find natural number solution: x = x0 + (Orig_B)*K, y = y0 + (Orig_A)*K
-         for K in -10000 .. 10000 loop
-            declare
-               X: int := X0 + (Orig_B * int(K));
-               Y: int := Y0 + (Orig_A * int(K));
-            begin
-               if X > 0 and Y > 0 then
-                  Result.X := X;
-                  Result.Y := Y;
-                  return Result;
-               end if;
-            end;
-         end loop;
-      end;
+      -- Adjust to find the smallest natural solution (x >= 0, y >= 0)
+      -- In ax - by = c, x and y move in the same direction
+      while X < 0 or Y < 0 loop
+         X := X + Step_X;
+         Y := Y + Step_Y;
+      end loop;
 
-      -- no positive solution found
-      return Result;
+      while X - Step_X >= 0 and Y - Step_Y >= 0 loop
+         X := X - Step_X;
+         Y := Y - Step_Y;
+      end loop;
+
+      return (X => X, Y => Y);
    end Diofant;
 
    -- Ada wrappers exported with ada_ prefix
