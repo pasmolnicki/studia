@@ -8,8 +8,8 @@ package Ada_Nums is
     type Diofant_Result is record
         X: int := 0;
         Y: int := 0;
-    end record;
-    pragma Convention (C, Diofant_Result);
+    end record
+      with Convention => C;
 
     function Diofant (A: int; B: int; C: int) return Diofant_Result;
 

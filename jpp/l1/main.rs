@@ -11,6 +11,12 @@ extern "C" {
     pub fn diofant(a: i32, b: i32, c: i32) -> diofant_result_t;
 }
 
+extern "C" { 
+    fn ada_gcd(a: i32, b: i32) -> i32; 
+    fn ada_diofant(a:i32,b:i32,c:i32) -> diofant_result_t;
+}
+
+
 fn run_static_tests() {
     let tests = [ (48,18,6), (5,3,2), (3,2,1) ];
     println!("Combined Rust test harness: static + interactive (use 'interactive' arg)");
@@ -19,7 +25,6 @@ fn run_static_tests() {
         for (a,b,c) in tests.iter() {
             let a = *a; let b = *b; let c = *c;
             println!("C gcd({}, {}) = {}", a, b, gcd(a,b));
-            extern "C" { fn ada_gcd(a: i32, b: i32) -> i32; fn ada_diofant(a:i32,b:i32,c:i32) -> diofant_result_t; }
             let ada_g = ada_gcd(a,b);
             println!("Ada gcd({}, {}) = {}", a, b, ada_g);
 
@@ -42,14 +47,15 @@ fn interactive_mode() {
         if let (Ok(a), Ok(b), Ok(c)) = (parts[0].parse::<i32>(), parts[1].parse::<i32>(), parts[2].parse::<i32>()) {
             unsafe {
                 println!("C gcd({}, {}) = {}", a, b, gcd(a,b));
-                extern "C" { fn ada_gcd(a: i32, b: i32) -> i32; fn ada_diofant(a:i32,b:i32,c:i32) -> diofant_result_t; }
                 println!("Ada gcd = {}", ada_gcd(a,b));
                 let r_c = diofant(a,b,c);
                 let r_ada = ada_diofant(a,b,c);
                 println!("C diofant -> x={}, y={}", r_c.x, r_c.y);
                 println!("Ada diofant -> x={}, y={}", r_ada.x, r_ada.y);
             }
-        } else { println!("Invalid integers, try again"); }
+        } else { 
+            println!("Invalid integers, try again");
+        }
     }
 }
 
