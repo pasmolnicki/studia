@@ -7,10 +7,13 @@ następujące zadania:
     (c) i minimalną wartość dla tych 1000 losowań
 */
 
+use std::fs::File;
+use std::io::Write;
 use std::{fs, path};
 use std::path::{PathBuf};
 use rand::Rng;
 use rand::seq::SliceRandom;
+use serde::{Serialize};
 
 #[derive(Debug)]
 pub enum EdgeWeightType {
@@ -40,6 +43,15 @@ pub struct VecPoints {
     pub points: Vec<(f32, f32)>,
 }
 
+#[derive(Debug, Serialize)]
+pub struct ExpResult {
+    pub name: String,
+    pub mean: i32,
+    pub min_values: Vec<i32>,
+    pub groups: i32,
+    pub samples_per_group: i32,
+}
+
 impl VecPoints {
     #[must_use]
     pub fn new() -> Self {
@@ -66,6 +78,7 @@ impl VecPoints {
 }
 
 const REL_PATH: &str = "./data/";
+const OUTPUT_PATH: &str = "./results/";
 
 fn load_files() -> Vec<String> {
     const FILE_NAMES: [&str; 5] = [
@@ -150,26 +163,37 @@ pub fn load_data() -> Vec<Data> {
     data
 }
 
-fn run_single_experiment(points: &Vec<VecPoints>, groups: i32, samples_per_group: i32) -> i32 {
+fn run_single_experiment(points: &Vec<VecPoints>, groups: i32, samples_per_group: i32, name: &str) -> ExpResult {
+    assert!(points.len() <= (groups * samples_per_group) as usize, "Invalid groups and samples params");
     const MAX: i32 = ((1 << 31) as i32).wrapping_sub(1);
-    let mut result = 0i32;
+    let mut mean = 0i32;
+    let mut min_values = Vec::with_capacity(groups as usize);
 
     for group in 0..groups {
         let mut min = MAX;
         for i in 0..samples_per_group {
             min = std::cmp::min(min, points[(group * samples_per_group + i) as usize].calc_distance());
         }
-        result += (min - result) / (group + 1);
+        
+        min_values.push(min);
+        mean += (min - mean) / (group + 1);
     }
 
-    result
+    ExpResult { 
+        name: format!("{}-{}-{}", name, groups, samples_per_group), 
+        mean, min_values, groups, samples_per_group } 
 }
 
 pub fn run_experiment() {
+    let abs = path::absolute(PathBuf::from(OUTPUT_PATH)).unwrap();
+
+    if !fs::exists(&abs).unwrap() {
+        fs::create_dir(&abs).expect("Couldn't create output directory");
+    }
+
     let mut data_vec = load_data();
     let mut rng = rand::rng();
     
-
     for data in data_vec.iter_mut() {
         std::println!("{}", data.name);
 
@@ -178,9 +202,18 @@ pub fn run_experiment() {
             permutations.push(data.points.permutation(&mut rng));
         }
 
-        std::println!("groups = 100, samples = 10: {}", run_single_experiment(&permutations, 100, 10));
-        std::println!("groups = 20, samples = 50: {}", run_single_experiment(&permutations, 20, 50));
-        std::println!("groups = 1, samlples = 1000: {}", run_single_experiment(&permutations, 1, 1000));
+        save_to_file(run_single_experiment(&permutations, 100, 10, &data.name));
+        save_to_file(run_single_experiment(&permutations, 20, 50, &data.name));
+        save_to_file(run_single_experiment(&permutations, 1, 1000, &data.name));
     }
 }
 
+fn save_to_file(result: ExpResult) {
+    let serialized = serde_json::to_string(&result).unwrap();
+    let path = path::absolute(PathBuf::from(OUTPUT_PATH)).unwrap();
+    let file_path = path.join(format!("{}.json", result.name));
+    let mut file = File::create(&file_path).expect(
+        &format!("Couldn't create file: {}", file_path.to_str().unwrap()));
+    
+    file.write_all(serialized.as_bytes()).expect("Couldn't write to file");
+}

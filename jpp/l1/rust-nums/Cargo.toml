@@ -10,4 +10,4 @@ panic = "abort"
 
 [lib]
 name = "rust_nums"
-crate-type = ["cdylib"]
+crate-type = ["staticlib"]

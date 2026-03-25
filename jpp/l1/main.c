@@ -70,7 +70,9 @@ static void interactive_mode(void) {
 
 int main(int argc, char **argv) {
     printf("Combined C test harness: static + interactive (use 'interactive' arg)\n");
-    run_static_tests();
+    // run_static_tests();
+    const int n = (1l << 31) - 1;
+    printf("totient(%d) = %d\n", n, totient(n));
 
     if (argc > 1 && strcmp(argv[1], "interactive") == 0) {
         interactive_mode();

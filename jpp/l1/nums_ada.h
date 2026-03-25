@@ -1,8 +1,5 @@
 #pragma once
 
-#ifndef LIBRARY_API
-#define LIBRARY_API "ADA"
-#endif
 #define API_ADA
 
 // Ada functions exported with pragma Export and C calling convention
