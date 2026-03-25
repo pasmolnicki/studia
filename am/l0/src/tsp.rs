@@ -38,7 +38,7 @@ pub struct Data {
     pub points: VecPoints,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct VecPoints {
     pub points: Vec<(f32, f32)>,
 }
@@ -163,25 +163,32 @@ pub fn load_data() -> Vec<Data> {
     data
 }
 
-fn run_single_experiment(points: &Vec<VecPoints>, groups: i32, samples_per_group: i32, name: &str) -> ExpResult {
+fn run_single_experiment(points: &Vec<VecPoints>, groups: i32, samples_per_group: i32, name: &str) -> (ExpResult, VecPoints) {
     assert!(points.len() <= (groups * samples_per_group) as usize, "Invalid groups and samples params");
     const MAX: i32 = ((1 << 31) as i32).wrapping_sub(1);
     let mut mean = 0i32;
     let mut min_values = Vec::with_capacity(groups as usize);
+    let mut best_solution = VecPoints::new();
 
     for group in 0..groups {
         let mut min = MAX;
         for i in 0..samples_per_group {
-            min = std::cmp::min(min, points[(group * samples_per_group + i) as usize].calc_distance());
+            let p = &points[(group * samples_per_group + i) as usize];
+            let dist = p.calc_distance();
+            if min > dist {
+                best_solution = p.clone();
+                min = dist;
+            }
         }
         
         min_values.push(min);
         mean += (min - mean) / (group + 1);
     }
 
-    ExpResult { 
+    (ExpResult { 
         name: format!("{}-{}-{}", name, groups, samples_per_group), 
-        mean, min_values, groups, samples_per_group } 
+        mean, min_values, groups, samples_per_group }, 
+    best_solution)
 }
 
 pub fn run_experiment() {
@@ -202,9 +209,9 @@ pub fn run_experiment() {
             permutations.push(data.points.permutation(&mut rng));
         }
 
-        save_to_file(run_single_experiment(&permutations, 100, 10, &data.name));
-        save_to_file(run_single_experiment(&permutations, 20, 50, &data.name));
-        save_to_file(run_single_experiment(&permutations, 1, 1000, &data.name));
+        save_to_file(run_single_experiment(&permutations, 100, 10, &data.name).0);
+        save_to_file(run_single_experiment(&permutations, 20, 50, &data.name).0);
+        save_to_file(run_single_experiment(&permutations, 1, 1000, &data.name).0);
     }
 }
 

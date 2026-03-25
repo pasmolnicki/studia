@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 RESULTS_PATH = os.path.join(BASE_PATH, "results")
+FIGURES_PATH = os.path.join(BASE_PATH, "figures")
 
 @dataclass
 class Result:
@@ -31,12 +32,16 @@ def load_results(file_name) -> Result:
     with open(os.path.join(RESULTS_PATH, file_name), "r") as f:
         return Result(**json.load(f))
 
-def plot_results(results: list[Result]) -> None:
+def plot_results(results: list[Result], save: bool = True) -> None:
     """
     Results is a pack of the same subject with different groups and samples per group.
     Plots a scatter plot of the results, with group number as the x-axis
     and the mean + min values as the y-axis
     """
+
+    if save and not os.path.exists(FIGURES_PATH):
+        os.makedirs(FIGURES_PATH)
+
     from collections import defaultdict
     
     # Group results by dataset prefix (e.g., "dj38" from "dj38-1-1000")
@@ -50,7 +55,9 @@ def plot_results(results: list[Result]) -> None:
         result_list = sorted(grouped[prefix], key=lambda r: r.groups)
         
         fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-        fig.suptitle(f"TSP Results for {prefix}", fontsize=14, fontweight='bold')
+
+        if not save:
+            fig.suptitle(f"TSP Results for {prefix}", fontsize=14, fontweight='bold')
         
         for idx, result in enumerate(result_list):
             ax = axes[idx]
@@ -69,8 +76,13 @@ def plot_results(results: list[Result]) -> None:
             ax.legend()
             ax.grid(True, alpha=0.3)
         
+
         plt.tight_layout()
-        plt.show()
+
+        if save:
+            fig.savefig(os.path.join(FIGURES_PATH, f"{prefix}_results.png"), dpi=300)
+        else:
+            plt.show()
 
 def main():
     result_files = [f for f in os.listdir(RESULTS_PATH) if f.endswith(".json")]
