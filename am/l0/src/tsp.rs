@@ -38,9 +38,10 @@ pub struct Data {
     pub points: VecPoints,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct VecPoints {
     pub points: Vec<(f32, f32)>,
+    pub name: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -55,7 +56,7 @@ pub struct ExpResult {
 impl VecPoints {
     #[must_use]
     pub fn new() -> Self {
-        Self { points: Vec::new() }
+        Self { points: Vec::new(), name: String::new() }
     }
 
     pub fn calc_distance(&self) -> i32 {
@@ -73,32 +74,43 @@ impl VecPoints {
     pub fn permutation(&self, rng: &mut dyn Rng) -> Self {
         let mut points = self.points.clone();
         points.shuffle(rng);
-        Self { points }
+        Self { points, name: self.name.clone() }
+    }
+
+    pub fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
+}
+trait NamedObject {
+    fn name(&self) -> &str;
+}
+
+impl NamedObject for ExpResult {
+    fn name(&self) -> &str {
+        &self.name
+    }
+}
+
+impl NamedObject for VecPoints {
+    fn name(&self) -> &str {
+        &self.name
     }
 }
 
 const REL_PATH: &str = "./data/";
 const OUTPUT_PATH: &str = "./results/";
 
-fn load_files() -> Vec<String> {
-    const FILE_NAMES: [&str; 5] = [
-        "qa194.tsp", // Quatar
-        "dj38.tsp", // Djibouti
-        "uy734.tsp", // Uruguay
-        "wi29.tsp", // Western Sahara
-        "zi929.tsp", // Zimbabwe
-    ];
+fn load_files(file_names: &[&str]) -> Vec<String> {
     
     let mut files = Vec::new();
     let rel_path = PathBuf::from(REL_PATH);
     let base_path = path::absolute(rel_path).unwrap();
 
-    for file in FILE_NAMES.iter() {
+    for file in file_names.iter() {
         let file_path = base_path.join(*file);
         
-        let contents = fs::read_to_string(
-                &file_path
-            ).expect(format!("Couldn't read file: {}", file_path.to_string_lossy()).as_str());
+        let contents = fs::read_to_string(&file_path)
+            .expect(format!("Couldn't read file: {}", file_path.to_string_lossy()).as_str());
         files.push(contents);
     }
 
@@ -152,8 +164,8 @@ fn parse_file(file: &String) -> Data {
     data
 }
 
-pub fn load_data() -> Vec<Data> {
-    let files = load_files();
+pub fn load_data(file_names: &[&str]) -> Vec<Data> {
+    let files = load_files(file_names);
     let mut data = Vec::with_capacity(files.len());
 
     for file in files {
@@ -165,6 +177,7 @@ pub fn load_data() -> Vec<Data> {
 
 fn run_single_experiment(points: &Vec<VecPoints>, groups: i32, samples_per_group: i32, name: &str) -> (ExpResult, VecPoints) {
     assert!(points.len() <= (groups * samples_per_group) as usize, "Invalid groups and samples params");
+    
     const MAX: i32 = ((1 << 31) as i32).wrapping_sub(1);
     let mut mean = 0i32;
     let mut min_values = Vec::with_capacity(groups as usize);
@@ -192,13 +205,21 @@ fn run_single_experiment(points: &Vec<VecPoints>, groups: i32, samples_per_group
 }
 
 pub fn run_experiment() {
+    const FILE_NAMES: [&str; 5] = [
+        "qa194.tsp", // Quatar
+        "dj38.tsp", // Djibouti
+        "uy734.tsp", // Uruguay
+        "wi29.tsp", // Western Sahara
+        "zi929.tsp", // Zimbabwe
+    ];
+
     let abs = path::absolute(PathBuf::from(OUTPUT_PATH)).unwrap();
 
     if !fs::exists(&abs).unwrap() {
         fs::create_dir(&abs).expect("Couldn't create output directory");
     }
 
-    let mut data_vec = load_data();
+    let mut data_vec = load_data(&FILE_NAMES);
     let mut rng = rand::rng();
     
     for data in data_vec.iter_mut() {
@@ -211,14 +232,17 @@ pub fn run_experiment() {
 
         save_to_file(run_single_experiment(&permutations, 100, 10, &data.name).0);
         save_to_file(run_single_experiment(&permutations, 20, 50, &data.name).0);
-        save_to_file(run_single_experiment(&permutations, 1, 1000, &data.name).0);
+        let (result, mut best_solution) = run_single_experiment(&permutations, 1, 1000, &data.name);
+        save_to_file(result);
+        best_solution.set_name(format!("{}-solution", data.name));
+        save_to_file(best_solution);
     }
 }
 
-fn save_to_file(result: ExpResult) {
+fn save_to_file<T: NamedObject + serde::Serialize>(result: T) {
     let serialized = serde_json::to_string(&result).unwrap();
     let path = path::absolute(PathBuf::from(OUTPUT_PATH)).unwrap();
-    let file_path = path.join(format!("{}.json", result.name));
+    let file_path = path.join(format!("{}.json", result.name()));
     let mut file = File::create(&file_path).expect(
         &format!("Couldn't create file: {}", file_path.to_str().unwrap()));
     

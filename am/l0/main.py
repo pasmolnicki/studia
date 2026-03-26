@@ -8,14 +8,19 @@ RESULTS_PATH = os.path.join(BASE_PATH, "results")
 FIGURES_PATH = os.path.join(BASE_PATH, "figures")
 
 @dataclass
-class Result:
+class ExperimentResult:
     name: str
     mean: int
     min_values: list[int]
     groups: int
     samples_per_group: int
 
-def load_results(file_name) -> Result:
+@dataclass
+class SolutionResult:
+    points: list[(float, float)]
+    name: str
+
+def load_results(file_name: str) -> ExperimentResult:
     """
     Returns json:
     {
@@ -30,18 +35,33 @@ def load_results(file_name) -> Result:
     {"name":"dj38-1-1000","mean":21272,"min_values":[21272],"groups":1,"samples_per_group":1000}
     """
     with open(os.path.join(RESULTS_PATH, file_name), "r") as f:
-        return Result(**json.load(f))
+        return ExperimentResult(**json.load(f))
 
-def plot_results(results: list[Result], save: bool = True) -> None:
+def load_solution(file_name: str) -> SolutionResult:
+    """
+    Expects a file with json:
+    {
+        "points": [[float, float], ...],
+        "name": str
+    }
+    """
+    with open(os.path.join(RESULTS_PATH, file_name), "r") as f:
+        return SolutionResult(**json.load(f))
+
+def assert_figures_path():
+    if not os.path.exists(FIGURES_PATH):
+        os.makedirs(FIGURES_PATH)
+
+def plot_results(results: list[ExperimentResult], save: bool = True) -> None:
     """
     Results is a pack of the same subject with different groups and samples per group.
     Plots a scatter plot of the results, with group number as the x-axis
     and the mean + min values as the y-axis
     """
 
-    if save and not os.path.exists(FIGURES_PATH):
-        os.makedirs(FIGURES_PATH)
-
+    if save:
+        assert_figures_path()
+    
     from collections import defaultdict
     
     # Group results by dataset prefix (e.g., "dj38" from "dj38-1-1000")
@@ -84,10 +104,39 @@ def plot_results(results: list[Result], save: bool = True) -> None:
         else:
             plt.show()
 
+def plot_solutions(results: list[SolutionResult], save: bool = True) -> None:
+    if save:
+        assert_figures_path()
+
+    """
+    Creates a 2D plane plot of the points, with connected lines between them, and saves the plot as a PNG file with the name of the dataset.
+    """
+
+    for result in results:
+        points = result.points
+        x, y = zip(*points)
+
+        fig = plt.figure(figsize=(8, 8))
+        plt.plot(x, y, marker='o', linestyle='-', color='blue')
+        plt.title(result.name, fontsize=14, fontweight='bold')
+        plt.xlabel('X Coordinate')
+        plt.ylabel('Y Coordinate')
+        plt.grid(True, alpha=0.3)
+        
+        if save:
+            fig.savefig(os.path.join(FIGURES_PATH, f"{result.name}.png"), dpi=300)
+        else:
+            plt.show()
+
+
 def main():
-    result_files = [f for f in os.listdir(RESULTS_PATH) if f.endswith(".json")]
-    results = [load_results(file) for file in result_files]
+    all_files = [f for f in os.listdir(RESULTS_PATH) if f.endswith('.json')]
+    data_files = [f for f in all_files if f.split('-')[1] != 'solution.json']
+    solution_files = [f for f in all_files if f.split('-')[1] == 'solution.json']
+    results = [load_results(file) for file in data_files]
+    solutions = [load_solution(file) for file in solution_files]
     plot_results(results)
+    plot_solutions(solutions)
 
 if __name__ == "__main__":
     main()
