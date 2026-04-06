@@ -9,6 +9,9 @@ następujące zadania:
 
 use std::{fs, path};
 use std::path::{PathBuf};
+use rand::Rng;
+use rand::seq::SliceRandom;
+use serde::{Serialize};
 
 #[derive(Debug)]
 pub enum EdgeWeightType {
@@ -30,33 +33,53 @@ pub struct Data {
     pub tsp_type: String,
     pub dimension: i32,
     pub edge_weight_type: EdgeWeightType,
-    pub points: Vec<(f32, f32)>,
+    pub points: VecPoints,
 }
 
-impl Data {
+#[derive(Debug, Clone, Serialize)]
+pub struct VecPoints {
+    pub points: Vec<(f32, f32)>,
+    pub name: String,
+}
+
+pub fn point_distance(p1: (f32, f32), p2: (f32, f32)) -> i32 {
+    let (px, py) = p1;
+    let (x, y) = p2;
+    ((px - x).powf(2.0) + (py - y).powf(2.0)).sqrt().round() as i32
+}
+
+impl VecPoints {
+    #[must_use]
+    pub fn new() -> Self {
+        Self { points: Vec::new(), name: String::new() }
+    }
+
     pub fn calc_distance(&self) -> i32 {
         let points = &self.points;
         let mut total = 0i32;
         for i in 1..points.len() {
-            let (px, py) = points[i-1];
-            let (x, y) = points[i];
-            total += ((px - x).powf(2.0) + (py - y).powf(2.0)).sqrt().round() as i32;
+            total += point_distance(points[i - 1], points[i]);
         }
 
         total
     }
+
+    pub fn permutation(&self, rng: &mut dyn Rng) -> Self {
+        let mut points = self.points.clone();
+        points.shuffle(rng);
+        Self { points, name: self.name.clone() }
+    }
+
+    pub fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
 }
 
-const REL_PATH: &str = "./data/";
 
-fn load_files(file_names: Vec<&str>) -> Vec<String> {
-    // const FILE_NAMES: [&str; 5] = [
-    //     "qa194.tsp", // Quatar
-    //     "dj38.tsp", // Djibouti
-    //     "uy734.tsp", // Uruguay
-    //     "wi29.tsp", // Western Sahara
-    //     "zi929.tsp", // Zimbabwe
-    // ];
+const REL_PATH: &str = "./data/";
+const OUTPUT_PATH: &str = "./results/";
+
+fn load_files(file_names: &[&str]) -> Vec<String> {
     
     let mut files = Vec::new();
     let rel_path = PathBuf::from(REL_PATH);
@@ -65,9 +88,8 @@ fn load_files(file_names: Vec<&str>) -> Vec<String> {
     for file in file_names.iter() {
         let file_path = base_path.join(*file);
         
-        let contents = fs::read_to_string(
-                &file_path
-            ).expect(format!("Couldn't read file: {}", file_path.to_string_lossy()).as_str());
+        let contents = fs::read_to_string(&file_path)
+            .expect(format!("Couldn't read file: {}", file_path.to_string_lossy()).as_str());
         files.push(contents);
     }
 
@@ -78,7 +100,7 @@ fn parse_file(file: &String) -> Data {
     let mut data: Data = Data { 
         name: String::new(), tsp_type: String::new(), 
         dimension: 0, edge_weight_type: EdgeWeightType::Eucl2d, 
-        points: Vec::new() 
+        points: VecPoints::new()
     };
 
     const TOKEN_LIST: [&str; 5] = [
@@ -112,7 +134,7 @@ fn parse_file(file: &String) -> Data {
                 }
                 let x = point_tokens[1].trim().parse::<f32>().unwrap();
                 let y = point_tokens[2].trim().parse::<f32>().unwrap();
-                data.points.push((x, y));
+                data.points.points.push((x, y));
             }
             break;
         }
@@ -121,7 +143,7 @@ fn parse_file(file: &String) -> Data {
     data
 }
 
-pub fn load_data(file_names: Vec<&str>) -> Vec<Data> {
+pub fn load_data(file_names: &[&str]) -> Vec<Data> {
     let files = load_files(file_names);
     let mut data = Vec::with_capacity(files.len());
 
@@ -131,3 +153,33 @@ pub fn load_data(file_names: Vec<&str>) -> Vec<Data> {
 
     data
 }
+
+// fn run_single_experiment(points: &Vec<VecPoints>, groups: i32, samples_per_group: i32, name: &str) -> (ExpResult, VecPoints) {
+//     assert!(points.len() <= (groups * samples_per_group) as usize, "Invalid groups and samples params");
+    
+//     const MAX: i32 = ((1 << 31) as i32).wrapping_sub(1);
+//     let mut mean = 0i32;
+//     let mut min_values = Vec::with_capacity(groups as usize);
+//     let mut best_solution = VecPoints::new();
+
+//     for group in 0..groups {
+//         let mut min = MAX;
+//         for i in 0..samples_per_group {
+//             let p = &points[(group * samples_per_group + i) as usize];
+//             let dist = p.calc_distance();
+//             if min > dist {
+//                 best_solution = p.clone();
+//                 min = dist;
+//             }
+//         }
+        
+//         min_values.push(min);
+//         mean += (min - mean) / (group + 1);
+//     }
+
+//     (ExpResult { 
+//         name: format!("{}-{}-{}", name, groups, samples_per_group), 
+//         mean, min_values, groups, samples_per_group }, 
+//     best_solution)
+// }
+
