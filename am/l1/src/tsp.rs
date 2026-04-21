@@ -7,11 +7,12 @@ następujące zadania:
     (c) i minimalną wartość dla tych 1000 losowań
 */
 
-use std::{fs, path};
-use std::path::{PathBuf};
+use std::{error::Error, fs, path};
+use std::path::PathBuf;
 use rand::Rng;
 use rand::seq::SliceRandom;
 use serde::{Serialize};
+use plotters::prelude::*;
 
 #[derive(Debug)]
 pub enum EdgeWeightType {
@@ -72,6 +73,74 @@ impl VecPoints {
 
     pub fn set_name(&mut self, name: String) {
         self.name = name;
+    }
+
+    // Treats points as a cycle, so each point is connected to the next one
+    // and the last one is connected to the first one
+    pub fn visualize(&self, file_name: Option<&str>) -> Result<PathBuf, Box<dyn Error>> {
+        if self.points.is_empty() {
+            return Err("cannot visualize an empty point set".into());
+        }
+
+        let output_path = match file_name {
+            Some(file_name) => {
+                let path = PathBuf::from(file_name);
+                if path.extension().is_none() {
+                    path.with_extension("png")
+                } else {
+                    path
+                }
+            }
+            None => {
+                let file_name = if self.name.is_empty() {
+                    "tsp_visualization.png".to_string()
+                } else {
+                    format!("{}.png", self.name)
+                };
+                PathBuf::from(OUTPUT_PATH).join(file_name)
+            }
+        };
+
+        if let Some(parent) = output_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        let (min_x, max_x) = self.points.iter().fold(
+            (f32::INFINITY, f32::NEG_INFINITY),
+            |(min_x, max_x), (x, _)| (min_x.min(*x), max_x.max(*x)),
+        );
+        let (min_y, max_y) = self.points.iter().fold(
+            (f32::INFINITY, f32::NEG_INFINITY),
+            |(min_y, max_y), (_, y)| (min_y.min(*y), max_y.max(*y)),
+        );
+
+        let x_span = (max_x - min_x).abs();
+        let y_span = (max_y - min_y).abs();
+        let x_padding = if x_span == 0.0 { 1.0 } else { x_span * 0.1 };
+        let y_padding = if y_span == 0.0 { 1.0 } else { y_span * 0.1 };
+
+        let result_path = output_path.clone();
+        let root = BitMapBackend::new(&output_path, (1000, 800)).into_drawing_area();
+        root.fill(&WHITE)?;
+
+        let mut chart = ChartBuilder::on(&root)
+            .margin(20)
+            .build_cartesian_2d(
+                (min_x - x_padding)..(max_x + x_padding),
+                (min_y - y_padding)..(max_y + y_padding),
+            )?;
+
+        let mut cycle_points = self.points.clone();
+        if cycle_points.len() > 1 {
+            cycle_points.push(cycle_points[0]);
+        }
+
+        chart.draw_series(LineSeries::new(cycle_points, &BLUE.mix(0.8)))?;
+
+        chart.draw_series(self.points.iter().map(|(x, y)| Circle::new((*x, *y), 5, RED.filled())))?;
+
+        root.present()?;
+        Ok(result_path)
     }
 }
 

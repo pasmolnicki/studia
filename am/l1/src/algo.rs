@@ -116,7 +116,7 @@ impl InversionIter {
         self.j += 1;
         if self.j >= points.points.len() {
             self.i += 1;
-            self.j = self.i + 1;
+            self.j = if self.i >= points.points.len() - 1 { 0 } else { self.i + 1 };
         }
 
         Some(distance)
