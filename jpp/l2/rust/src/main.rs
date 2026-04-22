@@ -6,6 +6,7 @@ struct Ring <const N: usize> {
 }
 
 impl <const N: usize> Ring<N> {
+    #[allow(dead_code)]
     fn default() -> Self {
         Ring { value: Some(0) }
     }
@@ -19,16 +20,34 @@ impl <const N: usize> Ring<N> {
     }
 
     fn inverse(&self) -> Option<usize> {
-        if self.value.is_none() {
+        let a = self.value.unwrap();
+
+        let mut t: isize = 0;
+        let mut new_t: isize = 1;
+        let mut r: isize = N as isize;
+        let mut new_r: isize = (a % N) as isize;
+
+        while new_r != 0 {
+            let q = r / new_r;
+
+            let temp_t = t - q * new_t;
+            t = new_t;
+            new_t = temp_t;
+
+            let temp_r = r - q * new_r;
+            r = new_r;
+            new_r = temp_r;
+        }
+
+        if r > 1 {
             return None;
         }
 
-        for i in 0..N {
-            if (self.value.unwrap() * i) % N == 1 {
-                return Some(i);
-            }
+        if t < 0 {
+            t += N as isize;
         }
-        None
+
+        Some(t as usize)
     }
 }
 
@@ -91,7 +110,7 @@ impl <const N: usize> std::ops::SubAssign for Ring<N> {
 
 impl <const N: usize> std::ops::DivAssign for Ring<N> {
     fn div_assign(&mut self, other: Self) {
-        self.value = (*self / other).get_value().clone();
+        *self = *self / other;
     }
 }
 

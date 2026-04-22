@@ -31,13 +31,34 @@ package body Ring is
       end "*";
 
       function Inverse (Item : Natural) return Natural is
+         T     : Integer := 0;
+         New_T : Integer := 1;
+         R     : Integer := Integer (N);
+         New_R : Integer := Integer (Item mod N);
+         Q     : Integer;
+         Temp  : Integer;
       begin
-         for I in 1 .. N - 1 loop
-            if (Item * I) mod N = 1 then
-               return I;
-            end if;
+         while New_R /= 0 loop
+            Q := R / New_R;
+
+            Temp := T - Q * New_T;
+            T := New_T;
+            New_T := Temp;
+
+            Temp := R - Q * New_R;
+            R := New_R;
+            New_R := Temp;
          end loop;
-         return 0;
+
+         if R > 1 then
+            return 0;
+         end if;
+
+         if T < 0 then
+            T := T + Integer (N);
+         end if;
+
+         return Natural (T);
       end Inverse;
 
       function "/" (Left, Right : Ring_Type) return Ring_Type is
