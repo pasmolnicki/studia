@@ -15,4 +15,8 @@ fn main() {
     // (5 + 17i) / (9 + 9i) = [(5 + 17i)(9 - 9i)] / (9^2 + 9^2) = [(45 + 153) + (153 - 45)i] / 162 = [198 + 108i] / 162 = 1 + i
     // All possible results: 
     // ...
+    let a = GaussianType::new(A, B);
+    let b = GaussianType::new(C, D);
+    let c = GaussianType::new(E, F);
+    println!("gcd({}, {}, {}) = {:?}", a, b, c, gcd_list(&[a, b, c]));
 }

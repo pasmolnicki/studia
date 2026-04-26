@@ -1,0 +1,273 @@
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage[polish]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage[a4paper,left=2cm,right=2cm,top=2.5cm,bottom=2.5cm]{geometry}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    commentstyle=\color{gray},
+    stringstyle=\color{red},
+    breaklines=true,
+    showstringspaces=false
+}
+
+\title{Sprawozdanie z laboratorium WZA}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section*{Zadanie 1}
+
+\subsection*{Pierścień liczb Gaussa Z[i]}
+
+Liczby Gaussa stanowią pierścień Z[i] = \{a + bi : a, b \in \mathbb{Z}\}. W implementacji reprezentowane są za pomocą pary liczb całkowitych (real, imag), gdzie real odpowiada części rzeczywistej, a imag części urojonej. Ta reprezentacja jest naturalna i efektywna, pozwalając na łatwe wykonywanie operacji arytmetycznych oraz zdefiniowanie normy euklidesowej.
+
+Norma liczby Gaussa z = a + bi zdefiniowana jest jako N(z) = a^2 + b^2. Operacja dzielenia z resztą wykorzystuje algorytm Euklidesa: dla dzielenia z przez w szukamy ilorazu q i reszty r takie, że z = qw + r, gdzie N(r) < N(w). Iloraz obliczamy dzieląc z przez w jako liczby zespolone, a następnie zaokrąglając wynik do najbliższej liczby Gaussa.
+
+Największy wspólny dzielnik (NWD) obliczany jest klasycznym algorytmem Euklidesa. Najmniejsza wspólna wielokrotność (NWW) dla liczb a i b definiowana jest wzorem \(ab / \text{NWD}(a,b)\). Ważnym aspektem jest fakt, że w Z[i] NWD jest znany tylko z dokładnością do jednostek (elementów odwracalnych): 1, -1, i, -i. Dlatego zarówno funkcje NWD, jak i NWW dla list liczb zwracają wszystkie cztery możliwe asocjaty wyniku.
+
+\subsubsection*{Obliczenia}
+
+Norma liczby 2 + 8i wynosi:
+\begin{align*}
+N(2 + 8i) = 2^2 + 8^2 = 4 + 64 = 68
+\end{align*}
+
+Dzielenie liczby (c + a) + (b + d)i = 5 + 17i przez e + fi = 9 + 9i. Liczbę zespoloną dzielimy, mnożąc licznik i mianownik przez sprzężenie mianownika:
+\begin{align*}
+\frac{5 + 17i}{9 + 9i} &= \frac{(5 + 17i)(9 - 9i)}{(9 + 9i)(9 - 9i)} \\
+&= \frac{45 - 45i + 153i - 153i^2}{81 - 81i^2} \\
+&= \frac{45 + 153 + (153 - 45)i}{81 + 81} \\
+&= \frac{198 + 108i}{162} \\
+&= 1.222... + 0.666...i
+\end{align*}
+
+Po zaokrągleniu do najbliższej liczby Gaussa otrzymujemy iloraz 1 + 1i. Operacja dzielenia z resztą jest zrealizowana, ale wynik dzielenia w sprawozdaniu to 1 + 1i.
+
+Największy wspólny dzielnik dla trójki liczb a + bi = 2 + 8i, c + di = 3 + 9i, e + fi = 9 + 9i obliczamy iteracyjnie. Wynik NWD jest równy (z dokładnością do jednostek) równoległy do wszystkich trzech liczb. Ze względu na strukturę Z[i], zwracane są wszystkie cztery asocjaty: \{-1 - i, 1 + i, 1 - i, -1 + i\}.
+
+\subsubsection*{Fragmenty kodu}
+
+Dzielenie z resztą:
+
+\begin{lstlisting}[language=Rust]
+pub fn div_mod(self, other: Self) -> (Self, Self) {
+    let quotient = self / other;
+    let remainder = self - quotient * other;
+    (quotient, remainder)
+}
+\end{lstlisting}
+
+Największy wspólny dzielnik:
+
+\begin{lstlisting}[language=Rust]
+pub fn gcd(a: GaussianType, b: GaussianType) -> GaussianType {
+    let mut a = a;
+    let mut b = b;
+
+    while b.real != 0 || b.imag != 0 {
+        let r = a.div_mod(b).1;
+        a = b;
+        b = r;
+    }
+    a
+}
+\end{lstlisting}
+
+Cztery asocjaty wyniku NWD dla listy liczb zwracane są za pomocą mnożenia przez jednostki:
+
+\begin{lstlisting}[language=Rust]
+pub fn gcd_list(numbers: &[GaussianType]) 
+    -> Option<Vec<GaussianType>> {
+    if numbers.is_empty() {
+        return None;
+    }
+    
+    let mut current_gcd = numbers[0];
+    for &num in numbers.iter().skip(1) {
+        current_gcd = gcd(current_gcd, num);
+    }
+    
+    let unit_1 = GaussianType::new(1, 0);
+    let unit_min1 = GaussianType::new(-1, 0);
+    let unit_i = GaussianType::new(0, 1);
+    let unit_mini = GaussianType::new(0, -1);
+
+    Some(vec![
+        current_gcd * unit_1,
+        current_gcd * unit_min1,
+        current_gcd * unit_i,
+        current_gcd * unit_mini,
+    ])
+}
+\end{lstlisting}
+
+\subsubsection*{Obsługiwanie list pustych i jednoelementowych}
+
+Dla listy pustej funkcja gcd\_list zwraca \texttt{None}, ponieważ nie istnieje NWD zbioru pustego. Dla listy jednoelementowej \{z\} funkcja zwraca \texttt{Some} zawierające wektor czterech asocjatów liczby z, ponieważ NWD jednej liczby to ona sama.
+
+\clearpage
+
+\section*{Zadanie 2}
+
+\subsection*{Pierścień wielomianów R[x]}
+
+Pierścień wielomianów jednej zmiennej R[x] reprezentowany jest jako klasa szablonowa \texttt{Polynomial<T>}, gdzie T musi spełniać koncept \texttt{Field}. Wielomiany przechowywane są w wektorze współczynników \texttt{coefs}, gdzie \texttt{coefs[i]} jest współczynnikiem przy x\textsuperscript{i}. Ta reprezentacja jest naturalna i efektywna: pozwala na łatwe indeksowanie według stopnia, a automatyczne usuwanie wiodących zer upraszcza obliczenia. Struktura ta może być łatwo rozszerzona na wielomiany wielu zmiennych poprzez definiowanie \texttt{Polynomial<Polynomial<T>>}.
+
+Norma wielomianu zdefiniowana jest jako jego stopień, z konwencją że norma wielomianu zerowego to -1. Dzielenie z resztą implementuje algorytm Euklidesa dla wielomianów: dzielimy wielomian dzielnej przez współczynnik wiodący dzielnika, tworząc jednomian, odejmujemy odpowiednią wielokrotność, i powtarzamy proces. Największy wspólny dzielnik obliczany jest klasycznym algorytmem Euklidesa na wielomianach, a NWW na podstawie wariantu \(\text{NWW}(a,b) = ab / \text{NWD}(a,b)\).
+
+\subsubsection*{Obliczenia}
+
+Norma wielomianu \(p_1(x) = 3x^2 + 8\) wynosi 2, ponieważ maksymalny stopień to 2.
+
+Dzielenie wielomianu \(3x^2 + 8\) przez \(x + 1\):
+\begin{align*}
+\frac{3x^2 + 8}{x + 1}
+\end{align*}
+
+Stosując algorytm dzielenia wielomianów:
+\begin{align*}
+3x^2 + 8 &= (3x - 3)(x + 1) + 11
+\end{align*}
+
+Iloraz wynosi \(3x - 3\), a reszta to 11.
+
+Dla wielomianów \(v(x) = 2x^3 - 8x^2 + 3x + 9\) i \(w(x) = 9x^3 - 9x^2 - 9x\), NWD wynosi 1 (wielomiany są względnie pierwsze w ciele współczynników).
+
+Szukamy stałej \(g\) takiej, że NWD\((v(x), w(x) + g) \neq 1\). Obliczamy wartość \(v(3)\):
+\begin{align*}
+v(3) = 2(27) - 8(9) + 3(3) + 9 = 54 - 72 + 9 + 9 = 0
+\end{align*}
+
+Liczba 3 jest pierwiastkiem \(v(x)\). Jeśli chcemy, aby \(w(3) + g = 0\), obliczamy \(w(3)\):
+\begin{align*}
+w(3) = 9(27) - 9(9) - 9(3) = 243 - 81 - 27 = 135
+\end{align*}
+
+Zatem \(g = -135\). Wielomian \(w(x) + g = 9x^3 - 9x^2 - 9x - 135\) ma pierwiastek wspólny z \(v(x)\) w punkcie \(x = 3\). NWD\((v(x), w(x) + g) = x - 3\).
+
+Najmniejsza wspólna wielokrotność:
+\begin{align*}
+\text{NWW}(v(x), w(x) + g) = x^5 - 2x^4 - 1.5x^3 - 12.5x^2 + 16.5x + 22.5
+\end{align*}
+
+\subsubsection*{Fragmenty kodu}
+
+Dzielenie z resztą wielomianów:
+
+\begin{lstlisting}[language=C++]
+std::pair<Polynomial, Polynomial> 
+    div_mod(const Polynomial& divisor) const {
+    if (divisor.is_zero()) {
+        throw std::invalid_argument(
+            "Division by zero polynomial");
+    }
+    Polynomial q;
+    Polynomial r = *this;
+
+    while (!r.is_zero() && r.norm() >= divisor.norm()) {
+        int deg_diff = r.norm() - divisor.norm();
+        T lc_r = r.leading_coef();
+        T lc_d = divisor.leading_coef();
+        T coef_diff = lc_r / lc_d;
+
+        std::vector<T> term_coefs(deg_diff + 1, T(0));
+        term_coefs[deg_diff] = coef_diff;
+        Polynomial term(term_coefs);
+
+        q = q + term;
+        r = r - (term * divisor);
+    }
+
+    return {q, r};
+}
+\end{lstlisting}
+
+Największy wspólny dzielnik wielomianów:
+
+\begin{lstlisting}[language=C++]
+template <Field T>
+Polynomial<T> gcd(Polynomial<T> a, Polynomial<T> b) {
+    while (!b.is_zero()) {
+        auto r = a % b;
+        a = b;
+        b = r;
+    }
+    return a.make_monic();
+}
+\end{lstlisting}
+
+\clearpage
+
+\section*{Zadanie 3}
+
+\subsection*{Porządki produktowe na N\textsuperscript{n}}
+
+Porządek produktowy na \(\mathbb{N}^n\) zdefiniowany jest jako: dla dwóch krotek \((x_1, \ldots, x_n)\) i \((y_1, \ldots, y_n)\) zachodzi \((x_1, \ldots, x_n) \leq (y_1, \ldots, y_n)\) wtedy i tylko wtedy, gdy \(x_i \leq y_i\) dla każdego \(i = 1, \ldots, n\). Element minimalny w zbiorze A to taki element, dla którego nie istnieje żaden inny element w A, który by go poprzedzał w tym porządku (strict predecessor).
+
+Algorytm znajdowania elementów minimalnych iteruje przez wszystkie elementy zbioru i dla każdego sprawdza, czy istnieje inny element poprzedzający go w porządku. Jeśli żaden taki element nie istnieje, dany element jest minimalny. W implementacji unikamy duplikatów poprzez sprawdzenie, czy znaleziony minimalny element już znajduje się na liście.
+
+\subsubsection*{Porównania par i trójek}
+
+Porównanie par w porządku \(\leq\) na \(\mathbb{N}^2\):
+\begin{align*}
+(2, 8) \leq (3, 9) &: \text{true (bo } 2 \leq 3 \text{ i } 8 \leq 9\text{)} \\
+(3, 9) \leq (9, 9) &: \text{true (bo } 3 \leq 9 \text{ i } 9 \leq 9\text{)}
+\end{align*}
+
+Porównanie trójek w porządku na \(\mathbb{N}^3\):
+\begin{align*}
+(2, 3, 9) \leq (8, 9, 9) &: \text{true (bo } 2 \leq 8, 3 \leq 9, 9 \leq 9\text{)}
+\end{align*}
+
+\subsubsection*{Elementy minimalne zbiorów}
+
+Zbiór A zawiera wszystkie pary (x, y) spełniające \((x - 2)^2 + (y - 8)^2 \leq 5\). To koło o promieniu \(\sqrt{5} \approx 2.236\) centrowane w punkcie (2, 8). Elementy należące do tego zbioru to:
+
+\begin{center}
+\{(0,7), (0,8), (0,9), (1,6), (1,7), (1,8), (1,9), (1,10), (2,6), (2,7), (2,8), (2,9), (2,10), (3,6), (3,7), (3,8), (3,9), (3,10), (4,7), (4,8), (4,9)\}
+\end{center}
+
+Elementy minimalne tego zbioru w porządku produktowym to (0, 7) i (1, 6), ponieważ nie istnieje żaden inny element należący do A, który by je poprzedzał.
+
+Zbiór B zawiera wszystkie czwórki (x, y, z, w) spełniające \((x - 3)^2 + (y - 9)^2 + (z - 9)^2 + (w - 9)^2 > 224\). To zewnętrze kuli o promieniu około 14.97 centrowanej w (3, 9, 9, 9). Element minimalny tego zbioru to (0, 0, 0, 0), ponieważ \((0 - 3)^2 + (0 - 9)^2 + (0 - 9)^2 + (0 - 9)^2 = 9 + 81 + 81 + 81 = 252 > 224\), a każda inna czwórka ma co najmniej jedną współrzędną większą od zera, co czyni ją większą w porządku produktowym.
+
+\subsubsection*{Implementacja algorytmu}
+
+Algorytm znajdujący elementy minimalne opiera się na definicji: dla każdego elementu sprawdzamy, czy istnieje inny element poprzedzający go (ale go nie równy). Element bez takiego poprzednika jest minimalny.
+
+\begin{lstlisting}[language=C++]
+template <typename T>
+std::vector<T> get_minimal(const std::vector<T>& set) {
+    std::vector<T> min_elems;
+    for (size_t i = 0; i < set.size(); ++i) {
+        bool is_min = true;
+        for (size_t j = 0; j < set.size(); ++j) {
+            if (i == j) continue;
+            if (set[j] <= set[i] && !(set[i] <= set[j])) {
+                is_min = false;
+                break;
+            }
+        }
+        if (is_min) {
+            bool exists = false;
+            for (const auto& m : min_elems) {
+                if (m == set[i]) exists = true;
+            }
+            if (!exists) min_elems.push_back(set[i]);
+        }
+    }
+    return min_elems;
+}
+\end{lstlisting}
+
+\end{document}
