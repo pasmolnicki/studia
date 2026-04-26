@@ -9,18 +9,18 @@ use std::{path};
 #[derive(Debug, Serialize)]
 pub struct TspAlgorithmResult {
     pub name: String,
-    pub mean_distance: i32,
-    pub mean_n_steps: i32,
+    pub mean_distance: i64,
+    pub mean_n_steps: i64,
     pub best_solution: tsp::VecPoints,
 }
 
 pub struct LocalSearchResult {
-    distance: i32,
-    n_steps: i32,
+    distance: u64,
+    n_steps: u64,
     solution: tsp::VecPoints,
 }
 
-trait NamedObject {
+pub trait NamedObject {
     fn name(&self) -> &str;
 }
 
@@ -59,7 +59,7 @@ Dla każdych danych podaj średnią wartość uzyskanego rozwiązania,
 pub trait TspProcedure {
     fn local_search(&self, points: &tsp::VecPoints) -> LocalSearchResult;
 
-    fn run(&self, data: &tsp::Data) -> TspAlgorithmResult {
+    fn run(&self, data: &tsp::Data, print: bool) -> TspAlgorithmResult {
         let mut result = TspAlgorithmResult {
             name: format!("LocalSearchZ1_{}", data.name),
             mean_distance: 0,
@@ -67,7 +67,7 @@ pub trait TspProcedure {
             best_solution: data.points.clone(),
         };
 
-        let mut min_distance = i32::MAX;
+        let mut min_distance = u64::MAX;
         let mut rng = rand::rng();
         let permutations = gen_permuntations(data, data.points.points.len(), &mut rng);
 
@@ -79,10 +79,19 @@ pub trait TspProcedure {
                 result.best_solution = solution.solution;
             }
 
-            result.mean_distance += (solution.distance - result.mean_distance) / (i as i32 + 1);
-            result.mean_n_steps += (solution.n_steps - result.mean_n_steps) / (i as i32 + 1);
+            result.mean_distance += (solution.distance as i64 - result.mean_distance) / (i as i64 + 1);
+            result.mean_n_steps += (solution.n_steps as i64 - result.mean_n_steps) / (i as i64 + 1);
+
+            if print {
+                print!("\r{}: {}/{}", result.name, i + 1, permutations.len());
+                std::io::stdout().flush().unwrap();
+            }
         }
 
+        if print {
+            println!("\n{}: mean_distance = {}, mean_n_steps = {}, best_distance = {}", 
+                result.name, result.mean_distance, result.mean_n_steps, min_distance);
+        }
         result
     }
 }
@@ -98,7 +107,7 @@ pub struct LocalSearchZ1;
 struct InversionIter {
     i: usize,
     j: usize,
-    orig_distance: i32,
+    orig_distance: u64,
 }
 
 impl InversionIter {
@@ -106,20 +115,14 @@ impl InversionIter {
         Self { i: 0, j: 1, orig_distance: points.calc_distance() }
     }
 
-    pub fn next(&mut self, points: &VecPoints) -> Option<i32> {
+    pub fn next(&self, points: &VecPoints) -> Option<Self> {
         if self.i >= points.points.len() - 1 {
             return None;
         }
 
-        let distance = self.calculate_inversion_new_distance(points);
-
-        self.j += 1;
-        if self.j >= points.points.len() {
-            self.i += 1;
-            self.j = if self.i >= points.points.len() - 1 { 0 } else { self.i + 1 };
-        }
-
-        Some(distance)
+        let mut ret = Self{ i: self.i, j: self.j, orig_distance: self.orig_distance };
+        ret.increment(points);
+        Some(ret)
     }
 
     pub fn invert(&mut self, points: &mut VecPoints) {
@@ -133,7 +136,7 @@ impl InversionIter {
         self.j = 1;
     }
 
-    fn calculate_inversion_new_distance(&self, points: &VecPoints) -> i32 {
+    fn calculate_inversion_new_distance(&self, points: &VecPoints) -> u64 {
         // Now calculate partial update for distance after inversion of (i, j)
         // Consider the following case:
         // M = (1, 5, 2, 3, 4) - original order
@@ -157,6 +160,15 @@ impl InversionIter {
 
         self.orig_distance - prev_dist_to_i - prev_dist_after_j + new_dist_to_i + new_dist_after_j
     }
+
+    fn increment(&mut self, points: &VecPoints) {        
+        self.j += 1;
+        if self.j >= points.points.len() {
+            self.i += 1;
+            self.j = if self.i >= points.points.len() - 1 { 0 } else { self.i + 1 };
+        }
+        self.orig_distance = self.calculate_inversion_new_distance(points);
+    }
 }
 
 impl TspProcedure for LocalSearchZ1 {
@@ -172,13 +184,22 @@ impl TspProcedure for LocalSearchZ1 {
 
         loop {
             let mut best_iter = None;
-            while let Some(new_distance) = iter.next(&current_solution) {
-                if new_distance < best_distance {
-                    best_distance = new_distance;
+            loop {
+                // Check if the current iteration gives us a better solution
+                if iter.orig_distance < best_distance {
+                    best_distance = iter.orig_distance;
                     best_iter = Some(iter.clone());
+                }
+
+                // Move to the next iteration
+                if let Some(next_iter) = iter.next(&current_solution) {
+                    iter = next_iter;
+                } else {
+                    break;
                 }
             }
 
+            // Apply the best inversion found in this iteration
             if let Some(mut best_iter) = best_iter {
                 best_iter.invert(&mut current_solution);
                 iter = best_iter;
@@ -187,6 +208,9 @@ impl TspProcedure for LocalSearchZ1 {
             } else {
                 break;
             }
+
+            print!("\r\tCD: {}, BS: {}, Steps: {}", iter.orig_distance, best_distance, n_steps);
+            std::io::stdout().flush().unwrap();
         }
 
         LocalSearchResult { distance: iter.orig_distance, n_steps, solution: current_solution }

@@ -39,14 +39,14 @@ pub struct Data {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct VecPoints {
-    pub points: Vec<(f32, f32)>,
+    pub points: Vec<(f64, f64)>,
     pub name: String,
 }
 
-pub fn point_distance(p1: (f32, f32), p2: (f32, f32)) -> i32 {
+pub fn point_distance(p1: (f64, f64), p2: (f64, f64)) -> u64 {
     let (px, py) = p1;
     let (x, y) = p2;
-    ((px - x).powf(2.0) + (py - y).powf(2.0)).sqrt().round() as i32
+    ((px - x).powf(2.0) + (py - y).powf(2.0)).sqrt().round() as u64
 }
 
 impl VecPoints {
@@ -55,9 +55,9 @@ impl VecPoints {
         Self { points: Vec::new(), name: String::new() }
     }
 
-    pub fn calc_distance(&self) -> i32 {
+    pub fn calc_distance(&self) -> u64 {
         let points = &self.points;
-        let mut total = 0i32;
+        let mut total = 0u64;
         for i in 1..points.len() {
             total += point_distance(points[i - 1], points[i]);
         }
@@ -106,11 +106,11 @@ impl VecPoints {
         }
 
         let (min_x, max_x) = self.points.iter().fold(
-            (f32::INFINITY, f32::NEG_INFINITY),
+            (f64::INFINITY, f64::NEG_INFINITY),
             |(min_x, max_x), (x, _)| (min_x.min(*x), max_x.max(*x)),
         );
         let (min_y, max_y) = self.points.iter().fold(
-            (f32::INFINITY, f32::NEG_INFINITY),
+            (f64::INFINITY, f64::NEG_INFINITY),
             |(min_y, max_y), (_, y)| (min_y.min(*y), max_y.max(*y)),
         );
 
@@ -201,8 +201,8 @@ fn parse_file(file: &String) -> Data {
                 if point_tokens.len() < 3 {
                     continue;
                 }
-                let x = point_tokens[1].trim().parse::<f32>().unwrap();
-                let y = point_tokens[2].trim().parse::<f32>().unwrap();
+                let x = point_tokens[1].trim().parse::<f64>().unwrap();
+                let y = point_tokens[2].trim().parse::<f64>().unwrap();
                 data.points.points.push((x, y));
             }
             break;
@@ -222,33 +222,4 @@ pub fn load_data(file_names: &[&str]) -> Vec<Data> {
 
     data
 }
-
-// fn run_single_experiment(points: &Vec<VecPoints>, groups: i32, samples_per_group: i32, name: &str) -> (ExpResult, VecPoints) {
-//     assert!(points.len() <= (groups * samples_per_group) as usize, "Invalid groups and samples params");
-    
-//     const MAX: i32 = ((1 << 31) as i32).wrapping_sub(1);
-//     let mut mean = 0i32;
-//     let mut min_values = Vec::with_capacity(groups as usize);
-//     let mut best_solution = VecPoints::new();
-
-//     for group in 0..groups {
-//         let mut min = MAX;
-//         for i in 0..samples_per_group {
-//             let p = &points[(group * samples_per_group + i) as usize];
-//             let dist = p.calc_distance();
-//             if min > dist {
-//                 best_solution = p.clone();
-//                 min = dist;
-//             }
-//         }
-        
-//         min_values.push(min);
-//         mean += (min - mean) / (group + 1);
-//     }
-
-//     (ExpResult { 
-//         name: format!("{}-{}-{}", name, groups, samples_per_group), 
-//         mean, min_values, groups, samples_per_group }, 
-//     best_solution)
-// }
 
