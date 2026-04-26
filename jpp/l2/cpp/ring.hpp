@@ -10,7 +10,7 @@
 // Ring modulo N
 template <std::size_t N>
 class Ring {
-    public:
+public:
     Ring() : value(0) {}
     explicit Ring(std::size_t val) : value(val % N) {};
     Ring(const Ring&) = default;
@@ -32,15 +32,7 @@ class Ring {
     }
 
     Ring operator/(const Ring& other) const noexcept(false) {
-        if (other.value == 0) {
-            throw std::invalid_argument("Division by zero in Ring");
-        }
-        // Find the multiplicative inverse of other.value modulo N
-        auto inverse = find_inverse(other.value);
-        if (inverse == 0) {
-            throw std::invalid_argument("No multiplicative inverse exists in Ring");
-        }
-        return Ring((value * inverse) % N);
+        return Ring((value * guard_inverse(other.value)) % N);
     }
 
     Ring& operator+=(const Ring& other) {
@@ -59,14 +51,7 @@ class Ring {
     }
 
     Ring& operator/=(const Ring& other) noexcept(false) {
-        if (other.value == 0) {
-            throw std::invalid_argument("Division by zero in Ring");
-        }
-        auto inverse = find_inverse(other.value);
-        if (inverse == 0) {
-            throw std::invalid_argument("No multiplicative inverse exists in Ring");
-        }
-        value = (value * inverse) % N;
+        value = (value * guard_inverse(other.value)) % N;
         return *this;
     }
 
@@ -82,16 +67,28 @@ class Ring {
         return value <=> other.value;
     }
 
+    bool operator<(const Ring& other) const {
+        return ((*this) <=> other) < 0;
+    }
+
+    bool operator>(const Ring& other) const {
+        return ((*this) <=> other) > 0;
+    }
+
+    bool operator<=(const Ring& other) const {
+        return this->value <= other.value;
+    }
+
+    bool operator>=(const Ring& other) const {
+        return this->value >= other.value;
+    }
+
     std::ostream& operator<<(std::ostream& os) const {
         return os << value;
     }
 
     Ring inverse() const noexcept(false) {
-        auto inv = find_inverse(value);
-        if (inv == 0) {
-            throw std::invalid_argument("No multiplicative inverse exists in Ring");
-        }
-        return Ring(inv);
+        return Ring(guard_inverse(this->value));
     }
 
     operator std::size_t() const {
@@ -99,14 +96,62 @@ class Ring {
     }
 
 private:
-
-    constexpr std::size_t find_inverse(std::size_t val) const {
-        for (std::size_t i = 1; i < N; ++i) {
-            if ((val * i) % N == 1) {
-                return i;
-            }
+    // Find the multiplicative inverse of other.value modulo N, it may throw
+    std::size_t guard_inverse(std::size_t val) const noexcept(false) {
+        auto inverse = find_inverse(val);
+        if (inverse == 0) {
+            throw std::invalid_argument("No multiplicative inverse exists in Ring");
         }
-        return 0; // No inverse found
+        return inverse;
+    }
+
+    /*
+    https://en.wikipedia.org/wiki/Extended_Euclidean_algorithm#Modular_integers
+    function inverse(a, n)
+        t := 0;     newt := 1
+        r := n;     newr := a
+
+        while newr ≠ 0 do
+            quotient := r div newr
+            (t, newt) := (newt, t − quotient × newt) 
+            (r, newr) := (newr, r − quotient × newr)
+
+        if r > 1 then
+            return "a is not invertible"
+        if t < 0 then
+            t := t + n
+
+        return t
+    */
+    constexpr std::size_t find_inverse(std::size_t val) const {
+        using signed_t = long long;
+
+        signed_t t = 0;
+        signed_t new_t = 1;
+        signed_t r = N;
+        signed_t new_r = val % N;
+
+        while (new_r != 0) {
+            signed_t q = r / new_r;
+
+            signed_t tmp_t = t - q * new_t;
+            t = new_t;
+            new_t = tmp_t;
+
+            signed_t tmp_r = r - q * new_r;
+            r = new_r;
+            new_r = tmp_r;
+        }
+
+        if (r > 1) {
+            return 0;
+        }
+
+        if (t < 0) {
+            t += N;
+        }
+
+        return t;
     }
 
     std::size_t value;

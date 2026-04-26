@@ -114,9 +114,9 @@ void test_comparisons() {
     
     test_eq("2 == 7 mod 5", a == b, true);
     test_eq("2 != 3 mod 5", a != c, true);
-    test_eq("2 < 3 mod 5 (strong ordering)", (a <=> c) < 0, true);
-    test_eq("3 > 2 mod 5 (strong ordering)", (c <=> a) > 0, true);
-    test_eq("2 == 7 mod 5 (strong ordering)", (a <=> b) == 0, true);
+    test_eq("2 < 3 mod 5", a < c, true);
+    test_eq("3 > 2 mod 5", c > a, true);
+    test_eq("2 == 7 mod 5", a == b, true);
 }
 
 int main() {
