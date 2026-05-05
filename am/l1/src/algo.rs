@@ -456,3 +456,281 @@ impl TspProcedure for LocalSearchZ3 {
         }
     }
 }
+
+// Simulated Annealing - metaheuristic that accepts worse solutions with decreasing probability
+pub struct SimulatedAnnealingBase {
+    pub initial_temperature: f64,
+    pub cooling_factor: f64,
+    pub epoch_length: usize,
+    pub no_improve_limit: u64,
+}
+
+impl Default for SimulatedAnnealingBase {
+    fn default() -> Self {
+        Self {
+            initial_temperature: 5.0,
+            cooling_factor: 0.95,
+            epoch_length: 50,
+            no_improve_limit: 30,
+        }
+    }
+}
+
+impl TspProcedure for SimulatedAnnealingBase {
+    fn local_search(&self, points: &VecPoints, dist_matrix: &DistanceMatrix) -> LocalSearchResult {
+        let mut route: Vec<usize> = (0..points.points.len()).collect();
+        let mut rng = rand::rng();
+        route.shuffle(&mut rng);
+
+        let mut len = dist_matrix.calculate_tour_length(&route);
+        let mut best_len = len;
+        let mut best_route = route.clone();
+        let mut steps = 0u64;
+        let mut temperature = self.initial_temperature;
+
+        for iteration in 0..1000 {
+            // Randomly select a neighbor (invert move)
+            let n = route.len();
+            if n < 2 { break; }
+            let i = rng.random_range(0..n - 1);
+            let j = rng.random_range(i + 1..n);
+
+            let delta = calculate_invert_delta(dist_matrix, &route, i, j);
+
+            // Acceptance criterion: always accept if better
+            let accept = if delta < 0 {
+                true
+            } else {
+                // Accept worse move with probability based on temperature
+                let temperature_safe = temperature.max(0.01);
+                let prob = (-(delta as f64) / temperature_safe).min(10.0).exp();
+                rng.random::<f64>() < prob
+            };
+
+            if accept {
+                apply_invert(&mut route, i, j);
+                len = len + delta;
+                steps += 1;
+
+                if len < best_len {
+                    best_len = len;
+                    best_route = route.clone();
+                }
+            }
+
+            // Cooling schedule
+            if iteration % 10 == 0 {
+                temperature *= self.cooling_factor;
+            }
+        }
+
+        let solution = VecPoints {
+            points: best_route.iter().map(|&idx| points.points[idx]).collect(),
+            name: points.name.clone(),
+        };
+
+        LocalSearchResult {
+            distance: best_len,
+            n_steps: steps,
+            solution,
+        }
+    }
+
+    fn run(&self, data: &tsp::Data, print: bool) -> TspAlgorithmResult {
+        let dist_matrix = DistanceMatrix::new(&data.points.points);
+        let n = data.points.points.len();
+
+        let mut total_distance = 0i64;
+        let mut total_steps = 0u64;
+        let mut best_distance = i64::MAX;
+        let mut best_solution = data.points.clone();
+
+        if print {
+            println!("\x1b[1;36m[SimulatedAnnealing] Starting optimization on {} vertices\x1b[0m", data.name);
+        }
+
+        for i in 0..n {
+            let result = self.local_search(&data.points, &dist_matrix);
+            total_distance += result.distance;
+            total_steps += result.n_steps;
+
+            if result.distance < best_distance {
+                best_distance = result.distance;
+                best_solution = result.solution;
+            }
+
+            if print && (i % 10 == 0 || i == n - 1) {
+                let progress = ((i + 1) as f64 / n as f64 * 100.0) as u32;
+                let bar_width = 30;
+                let filled = (progress as usize * bar_width / 100).min(bar_width);
+                let bar = format!("[{}{}]", "=".repeat(filled), " ".repeat(bar_width - filled));
+                print!("\r\x1b[1;31m[SA]\x1b[0m {} {}/{} ({}%) | Best: {}", bar, i + 1, n, progress, best_distance);
+                std::io::Write::flush(&mut std::io::stdout()).ok();
+            }
+        }
+
+        if print {
+            println!("\n\x1b[1;32m[SimulatedAnnealing] Complete\x1b[0m");
+        }
+
+        TspAlgorithmResult {
+            name: format!("SimulatedAnnealing_{}", data.name),
+            mean_distance: total_distance / n as i64,
+            mean_n_steps: (total_steps / n as u64) as i64,
+            best_solution,
+        }
+    }
+}
+
+// Tabu Search - search with memory of recent moves
+pub struct TabuSearchBase {
+    pub tabu_tenure: usize,
+    pub max_iterations: usize,
+    pub no_improve_limit: u64,
+}
+
+impl Default for TabuSearchBase {
+    fn default() -> Self {
+        Self {
+            tabu_tenure: 0, // Will be set to n/2 in local_search
+            max_iterations: 500,
+            no_improve_limit: 100,
+        }
+    }
+}
+
+impl TspProcedure for TabuSearchBase {
+    fn local_search(&self, points: &VecPoints, dist_matrix: &DistanceMatrix) -> LocalSearchResult {
+        let mut route: Vec<usize> = (0..points.points.len()).collect();
+        let mut rng = rand::rng();
+        route.shuffle(&mut rng);
+
+        let mut len = dist_matrix.calculate_tour_length(&route);
+        let mut best_len = len;
+        let mut best_route = route.clone();
+        let mut steps = 0u64;
+        let mut no_improve_count = 0u64;
+
+        // Tabu list: FIFO queue storing (i, j) move pairs
+        let mut tabu_list: Vec<(usize, usize)> = Vec::with_capacity(self.tabu_tenure);
+        let actual_tenure = if self.tabu_tenure > 0 {
+            self.tabu_tenure
+        } else {
+            (points.points.len() / 2).max(5)
+        };
+
+        let n = route.len();
+        let mut iteration = 0;
+
+        while iteration < self.max_iterations && no_improve_count < self.no_improve_limit {
+            let mut best_move_delta = i64::MAX;
+            let mut best_move = (0, 1);
+
+            // Search all neighbors
+            for i in 0..(n - 1) {
+                for j in (i + 1)..n {
+                    if i == 0 && j == n - 1 {
+                        continue;
+                    }
+
+                    let delta = calculate_invert_delta(dist_matrix, &route, i, j);
+                    let new_len = len + delta;
+
+                    // Check if this move is tabu
+                    let is_tabu = tabu_list.contains(&(i, j)) || tabu_list.contains(&(j, i));
+
+                    // Accept if: not tabu, OR tabu but improves global best (aspiration)
+                    let accept = !is_tabu || (new_len < best_len);
+
+                    if accept && delta < best_move_delta {
+                        best_move_delta = delta;
+                        best_move = (i, j);
+                        let _ = is_tabu && new_len < best_len;
+                    }
+                }
+            }
+
+            // Apply best move
+            if best_move_delta < i64::MAX {
+                apply_invert(&mut route, best_move.0, best_move.1);
+                len += best_move_delta;
+                steps += 1;
+
+                // Update tabu list (FIFO)
+                tabu_list.push(best_move);
+                if tabu_list.len() > actual_tenure {
+                    tabu_list.remove(0);
+                }
+
+                // Check if improved global best
+                if len < best_len {
+                    best_len = len;
+                    best_route = route.clone();
+                    no_improve_count = 0;
+                } else {
+                    no_improve_count += 1;
+                }
+            } else {
+                break;
+            }
+
+            iteration += 1;
+        }
+
+        let solution = VecPoints {
+            points: best_route.iter().map(|&idx| points.points[idx]).collect(),
+            name: points.name.clone(),
+        };
+
+        LocalSearchResult {
+            distance: best_len,
+            n_steps: steps,
+            solution,
+        }
+    }
+
+    fn run(&self, data: &tsp::Data, print: bool) -> TspAlgorithmResult {
+        let dist_matrix = DistanceMatrix::new(&data.points.points);
+        let n = data.points.points.len();
+
+        let mut total_distance = 0i64;
+        let mut total_steps = 0u64;
+        let mut best_distance = i64::MAX;
+        let mut best_solution = data.points.clone();
+
+        if print {
+            println!("\x1b[1;36m[TabuSearch] Starting optimization on {} vertices\x1b[0m", data.name);
+        }
+
+        for i in 0..n {
+            let result = self.local_search(&data.points, &dist_matrix);
+            total_distance += result.distance;
+            total_steps += result.n_steps;
+
+            if result.distance < best_distance {
+                best_distance = result.distance;
+                best_solution = result.solution;
+            }
+
+            if print && (i % 10 == 0 || i == n - 1) {
+                let progress = ((i + 1) as f64 / n as f64 * 100.0) as u32;
+                let bar_width = 30;
+                let filled = (progress as usize * bar_width / 100).min(bar_width);
+                let bar = format!("[{}{}]", "=".repeat(filled), " ".repeat(bar_width - filled));
+                print!("\r\x1b[1;34m[TS]\x1b[0m {} {}/{} ({}%) | Best: {}", bar, i + 1, n, progress, best_distance);
+                std::io::Write::flush(&mut std::io::stdout()).ok();
+            }
+        }
+
+        if print {
+            println!("\n\x1b[1;32m[TabuSearch] Complete\x1b[0m");
+        }
+
+        TspAlgorithmResult {
+            name: format!("TabuSearch_{}", data.name),
+            mean_distance: total_distance / n as i64,
+            mean_n_steps: (total_steps / n as u64) as i64,
+            best_solution,
+        }
+    }
+}
