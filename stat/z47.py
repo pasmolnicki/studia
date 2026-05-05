@@ -1,16 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-"""
- Objętość hiperkuli w przestrzeniach wielowymiarowych. Rozważamy
-objętość Vd hiperkuli o promieniu 1 w przestrzeni d-wymiarowej dla d = 1, 2, . . . , 20. Dla jakich d udział
-objętości hiperkuli w objętości otaczającej ją hiperkostki [−1, 1]d
-staje się pomijalny? Porównaj objętość
-wyliczoną ze wzoru analitycznego z objętością uzyskaną metodą Monte Carlo (tzn. losuj punkty z [−1, 1]d
-i sprawdzaj, czy należą do hiperkuli). Dla jakich d metoda Monte Carlo przestaje dawać sensowne wyniki
-i dlaczego?
-"""
-
 def volume_hypersphere(d: int) -> float:
     """Oblicza objętość hiperkuli o promieniu 1 w przestrzeni d-wymiarowej."""
     from math import gamma, pi
