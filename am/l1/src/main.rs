@@ -19,7 +19,7 @@ fn dummy_test() {
     res.best_solution.visualize(Some("solved")).unwrap();
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
 
     dummy_test();
 
@@ -31,5 +31,5 @@ fn main() {
     // data[0].points.visualize(Some("inital-dj38"))?;
     // let result = algo.run(&data[0], true);
     // result.best_solution.visualize(Some("solved-dj38"))?;
-    // Ok(())
+    Ok(())
 }

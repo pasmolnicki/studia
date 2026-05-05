@@ -43,10 +43,10 @@ pub struct VecPoints {
     pub name: String,
 }
 
-pub fn point_distance(p1: (f64, f64), p2: (f64, f64)) -> u64 {
+pub fn point_distance(p1: (f64, f64), p2: (f64, f64)) -> f64 {
     let (px, py) = p1;
     let (x, y) = p2;
-    ((px - x).powf(2.0) + (py - y).powf(2.0)).sqrt().round() as u64
+    ((px - x).powf(2.0) + (py - y).powf(2.0)).sqrt()
 }
 
 impl VecPoints {
@@ -55,9 +55,9 @@ impl VecPoints {
         Self { points: Vec::new(), name: String::new() }
     }
 
-    pub fn calc_distance(&self) -> u64 {
+    pub fn calc_distance(&self) -> f64 {
         let points = &self.points;
-        let mut total = 0u64;
+        let mut total = 0f64;
         for i in 1..points.len() {
             total += point_distance(points[i - 1], points[i]);
         }
@@ -65,17 +65,17 @@ impl VecPoints {
         total
     }
 
-    pub fn distance_matrix(&self) -> Vec<Vec<u64>> {
-        let mut m = vec![vec![0u64; self.points.len()]; self.points.len()];
+    // pub fn distance_matrix(&self) -> Vec<Vec<u64>> {
+    //     let mut m = vec![vec![0u64; self.points.len()]; self.points.len()];
 
-        for (i, v) in m.iter_mut().enumerate() {
-            for (j, val) in v.iter_mut().enumerate() {
-                *val = point_distance(self.points[i], self.points[j])
-            }
-        }
+    //     for (i, v) in m.iter_mut().enumerate() {
+    //         for (j, val) in v.iter_mut().enumerate() {
+    //             *val = point_distance(self.points[i], self.points[j])
+    //         }
+    //     }
 
-        m
-    }
+    //     m
+    // }
 
     pub fn permutation(&self, rng: &mut dyn Rng) -> Self {
         let mut points = self.points.clone();

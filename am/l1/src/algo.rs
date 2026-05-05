@@ -15,7 +15,7 @@ pub struct TspAlgorithmResult {
 }
 
 pub struct LocalSearchResult {
-    distance: u64,
+    distance: f64,
     n_steps: u64,
     solution: tsp::VecPoints,
 }
@@ -67,7 +67,7 @@ pub trait TspProcedure {
             best_solution: data.points.clone(),
         };
 
-        let mut min_distance = u64::MAX;
+        let mut min_distance = f64::MAX;
         let mut rng = rand::rng();
         let permutations = gen_permuntations(data, data.points.points.len(), &mut rng);
 
@@ -107,7 +107,7 @@ pub struct LocalSearchZ1;
 struct InversionIter {
     i: usize,
     j: usize,
-    orig_distance: u64,
+    orig_distance: f64,
 }
 
 impl InversionIter {
@@ -136,7 +136,7 @@ impl InversionIter {
         self.j = 1;
     }
 
-    fn calculate_inversion_new_distance(&self, points: &VecPoints) -> u64 {
+    fn calculate_inversion_new_distance(&self, points: &VecPoints) -> f64 {
         // Now calculate partial update for distance after inversion of (i, j)
         // Consider the following case:
         // M = (1, 5, 2, 3, 4) - original order
@@ -147,16 +147,16 @@ impl InversionIter {
         // new_distance = old_distance - dist(1, 5) - dist(5, 2) + dist(1, 2) + dist(2, 5)
         let prev_dist_to_i = if self.i > 0 {
             tsp::point_distance(points.points[self.i - 1], points.points[self.i])
-        } else { 0 };
+        } else { 0.0 };
         let prev_dist_after_j = if self.j < points.points.len() - 1 {
             tsp::point_distance(points.points[self.j + 1], points.points[self.j])
-        } else { 0 };
+        } else { 0.0 };
         let new_dist_to_i = if self.i > 0 {
             tsp::point_distance(points.points[self.i - 1], points.points[self.j])
-        } else { 0 };
+        } else { 0.0 };
         let new_dist_after_j = if self.j < points.points.len() - 1 {
             tsp::point_distance(points.points[self.j + 1], points.points[self.i])
-        } else { 0 };
+        } else { 0.0 };
 
         self.orig_distance + new_dist_to_i + new_dist_after_j - prev_dist_to_i - prev_dist_after_j
     }
