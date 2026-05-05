@@ -1,6 +1,7 @@
 use crate::tsp::{self, VecPoints, point_distance};
 use rand::{Rng, RngExt};
 use rand::seq::SliceRandom;
+use rayon::prelude::*;
 use serde::{Serialize};
 use std::fs::File;
 use std::io::Write;
@@ -169,34 +170,31 @@ impl TspProcedure for LocalSearchZ1 {
 
         let improved_flag = true;
         while improved_flag {
-            let mut best_delta = 0i64;
-            let mut best_i = 0;
-            let mut best_j = 1;
-            let mut found_improvement = false;
-
             let n = route.len();
-            for i in 0..(n - 1) {
-                for j in (i + 1)..n {
-                    if i == 0 && j == n - 1 {
-                        continue;
-                    }
 
-                    let d = calculate_invert_delta(dist_matrix, &route, i, j);
-                    if d < best_delta {
-                        best_delta = d;
-                        best_i = i;
-                        best_j = j;
-                        found_improvement = true;
-                    }
+            // Parallel evaluation of all neighborhood moves
+            // Generate all candidate (i, j) pairs and evaluate them in parallel
+            let best_move = (0..(n - 1))
+                .into_par_iter()
+                .flat_map(|i| {
+                    ((i + 1)..n)
+                        .into_par_iter()
+                        .map(move |j| (i, j))
+                })
+                .filter(|(i, j)| !(*i == 0 && *j == n - 1))
+                .map(|(i, j)| {
+                    let delta = calculate_invert_delta(dist_matrix, &route, i, j);
+                    (delta, i, j)
+                })
+                .min_by_key(|(delta, _, _)| *delta);
+
+            match best_move {
+                Some((best_delta, best_i, best_j)) if best_delta < 0 => {
+                    apply_invert(&mut route, best_i, best_j);
+                    len += best_delta;
+                    steps += 1;
                 }
-            }
-
-            if found_improvement && best_delta < 0 {
-                apply_invert(&mut route, best_i, best_j);
-                len += best_delta;
-                steps += 1;
-            } else {
-                break;
+                _ => break,
             }
         }
 
@@ -221,11 +219,11 @@ impl TspProcedure for LocalSearchZ1 {
         let mut best_distance = i64::MAX;
         let mut best_solution = data.points.clone();
 
-        for i in 0..n {
-            if print && i % 10 == 0 {
-                println!("{}", i);
-            }
+        if print {
+            println!("\x1b[1;36m[LocalSearchZ1] Starting optimization on {} vertices\x1b[0m", data.name);
+        }
 
+        for i in 0..n {
             let result = self.local_search(&data.points, &dist_matrix);
             total_distance += result.distance;
             total_steps += result.n_steps;
@@ -234,6 +232,19 @@ impl TspProcedure for LocalSearchZ1 {
                 best_distance = result.distance;
                 best_solution = result.solution;
             }
+
+            if print && (i % 10 == 0 || i == n - 1) {
+                let progress = ((i + 1) as f64 / n as f64 * 100.0) as u32;
+                let bar_width = 30;
+                let filled = (progress as usize * bar_width / 100).min(bar_width);
+                let bar = format!("[{}{}]", "=".repeat(filled), " ".repeat(bar_width - filled));
+                print!("\r\x1b[1;33m[Z1]\x1b[0m {} {}/{} ({}%) | Best: {}", bar, i + 1, n, progress, best_distance);
+                std::io::Write::flush(&mut std::io::stdout()).ok();
+            }
+        }
+
+        if print {
+            println!("\n\x1b[1;32m[LocalSearchZ1] Complete\x1b[0m");
         }
 
         TspAlgorithmResult {
@@ -311,11 +322,11 @@ impl TspProcedure for LocalSearchZ2 {
         let mut best_distance = i64::MAX;
         let mut best_solution = data.points.clone();
 
-        for i in 0..n {
-            if print && i % 10 == 0 {
-                println!("{}", i);
-            }
+        if print {
+            println!("\x1b[1;36m[LocalSearchZ2] Starting optimization on {} vertices\x1b[0m", data.name);
+        }
 
+        for i in 0..n {
             let result = self.local_search(&data.points, &dist_matrix);
             total_distance += result.distance;
             total_steps += result.n_steps;
@@ -324,6 +335,19 @@ impl TspProcedure for LocalSearchZ2 {
                 best_distance = result.distance;
                 best_solution = result.solution;
             }
+
+            if print && (i % 10 == 0 || i == n - 1) {
+                let progress = ((i + 1) as f64 / n as f64 * 100.0) as u32;
+                let bar_width = 30;
+                let filled = (progress as usize * bar_width / 100).min(bar_width);
+                let bar = format!("[{}{}]", "=".repeat(filled), " ".repeat(bar_width - filled));
+                print!("\r\x1b[1;35m[Z2]\x1b[0m {} {}/{} ({}%) | Best: {}", bar, i + 1, n, progress, best_distance);
+                std::io::Write::flush(&mut std::io::stdout()).ok();
+            }
+        }
+
+        if print {
+            println!("\n\x1b[1;32m[LocalSearchZ2] Complete\x1b[0m");
         }
 
         TspAlgorithmResult {
@@ -396,11 +420,11 @@ impl TspProcedure for LocalSearchZ3 {
         let mut best_distance = i64::MAX;
         let mut best_solution = data.points.clone();
 
-        for i in 0..n {
-            if print && i % 10 == 0 {
-                println!("{}", i);
-            }
+        if print {
+            println!("\x1b[1;36m[LocalSearchZ3] Starting optimization on {} vertices\x1b[0m", data.name);
+        }
 
+        for i in 0..n {
             let result = self.local_search(&data.points, &dist_matrix);
             total_distance += result.distance;
             total_steps += result.n_steps;
@@ -409,6 +433,19 @@ impl TspProcedure for LocalSearchZ3 {
                 best_distance = result.distance;
                 best_solution = result.solution;
             }
+
+            if print && (i % 10 == 0 || i == n - 1) {
+                let progress = ((i + 1) as f64 / n as f64 * 100.0) as u32;
+                let bar_width = 30;
+                let filled = (progress as usize * bar_width / 100).min(bar_width);
+                let bar = format!("[{}{}]", "=".repeat(filled), " ".repeat(bar_width - filled));
+                print!("\r\x1b[1;36m[Z3]\x1b[0m {} {}/{} ({}%) | Best: {}", bar, i + 1, n, progress, best_distance);
+                std::io::Write::flush(&mut std::io::stdout()).ok();
+            }
+        }
+
+        if print {
+            println!("\n\x1b[1;32m[LocalSearchZ3] Complete\x1b[0m");
         }
 
         TspAlgorithmResult {

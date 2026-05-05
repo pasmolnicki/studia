@@ -1,13 +1,19 @@
-use l1::{algo, tsp::{self, Data}};
+use l1::{algo::{self, LocalSearchZ1, LocalSearchZ2, LocalSearchZ3}, tsp::{self, Data}};
 use algo::{TspProcedure};
-use std::error::Error;
+use std::{error::Error, path::PathBuf};
 
 
 #[allow(dead_code)]
 fn dummy_test() {
     let algorithm = algo::LocalSearchZ1;
     let mut data = tsp::VecPoints::new();
-    data.points = vec![(2.0, 1.0), (0.0, 0.0), (4.0, 2.0), (1.0, 3.0), (2.0, 4.0)];
+    // Larger dataset to show progress indicators
+    data.points = vec![
+        (2.0, 1.0), (0.0, 0.0), (4.0, 2.0), (1.0, 3.0), (2.0, 4.0),
+        (5.0, 1.0), (3.0, 5.0), (6.0, 3.0), (1.0, 6.0), (7.0, 2.0),
+        (4.0, 6.0), (8.0, 1.0), (2.0, 7.0), (6.0, 6.0), (3.0, 2.0),
+        (5.0, 7.0), (1.0, 4.0), (7.0, 4.0), (4.0, 0.0), (8.0, 5.0),
+    ];
     data.set_name("test".to_string());
     data.visualize(Some("initial")).unwrap();
 
@@ -23,40 +29,43 @@ fn dummy_test() {
     res.best_solution.visualize(Some("solved")).unwrap();
 }
 
+#[allow(dead_code)]
+fn run_experiment(procedure: &dyn TspProcedure, data: &Data, procedure_name: &str) -> Result<PathBuf, Box<dyn Error>>  {
+    // Task 1: Full Local Search with Invert moves
+    println!("  Running LocalSearch{procedure_name} (full invert)...");
+    let result = procedure.run(data, true);
+    println!("  {procedure_name} - Mean: {}, Steps: {}, Best: {}", 
+        result.mean_distance, result.mean_n_steps, 
+        result.best_solution.calc_distance() as i64);
+
+    save_to_csv(data, procedure_name, &result)?;
+
+    result.best_solution.visualize(Some(&format!("results/{}_{}", data.name, procedure_name)))
+}
+
+#[allow(dead_code)]
+fn save_to_csv(data: &Data, procedure_name: &str, result: &algo::TspAlgorithmResult) -> Result<(), Box<dyn Error + 'static>> {
+    let csv_path = format!("results/{}_{}.csv", data.name, procedure_name);
+    let mut wtr = csv::Writer::from_path(&csv_path)?;
+    wtr.write_record(&["mean_distance", "mean_n_steps", "best_distance"])?;
+    wtr.write_record(&[result.mean_distance.to_string(), result.mean_n_steps.to_string(), result.best_solution.calc_distance().to_string()])?;
+    wtr.flush()?;
+    Ok(())
+}
+
 /// Example of running all three algorithms on TSP datasets
 #[allow(dead_code)]
 fn run_full_experiment() -> Result<(), Box<dyn Error>> {
     // These are the TSP problem instances to solve
-    let file_names = ["wi29.tsp", "dj38.tsp", "qa194.tsp", "uy734.tsp", "zi929.tsp"];
+    let file_names = ["mu1979.tsp", "ca4663.tsp", "tz6117.tsp", "eg7146.tsp", "ei8246.tsp"];
+    let data_list = tsp::load_data(&file_names);
     
-    for file_name in file_names.iter() {
-        println!("Processing: {}", file_name);
-        let data = tsp::load_data(&[file_name]);
+    for data in data_list.iter() {
+        println!("Processing: {}", data.name);
         
-        // Task 1: Full Local Search with Invert moves
-        println!("  Running LocalSearchZ1 (full invert)...");
-        let z1 = algo::LocalSearchZ1;
-        let result_z1 = z1.run(&data[0], true);
-        println!("  Z1 - Mean: {}, Steps: {}, Best: {}", 
-            result_z1.mean_distance, result_z1.mean_n_steps, 
-            result_z1.best_solution.calc_distance() as i64);
-        
-        // Task 2: Random sampling Local Search with Invert moves
-        println!("  Running LocalSearchZ2 (random invert)...");
-        let z2 = algo::LocalSearchZ2;
-        let result_z2 = z2.run(&data[0], true);
-        println!("  Z2 - Mean: {}, Steps: {}, Best: {}", 
-            result_z2.mean_distance, result_z2.mean_n_steps, 
-            result_z2.best_solution.calc_distance() as i64);
-        
-        // Task 3: Full Local Search with Transpose moves
-        println!("  Running LocalSearchZ3 (full transpose)...");
-        let z3 = algo::LocalSearchZ3;
-        let result_z3 = z3.run(&data[0], true);
-        println!("  Z3 - Mean: {}, Steps: {}, Best: {}", 
-            result_z3.mean_distance, result_z3.mean_n_steps, 
-            result_z3.best_solution.calc_distance() as i64);
-        
+        // run_experiment(&LocalSearchZ1, data, "Z1")?;
+        run_experiment(&LocalSearchZ2, data, "Z2")?;
+        // run_experiment(&LocalSearchZ3, data, "Z3")?;
         println!();
     }
     
@@ -64,12 +73,6 @@ fn run_full_experiment() -> Result<(), Box<dyn Error>> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // Run the dummy test by default
-    dummy_test();
-
-    // Uncomment the line below to run the full experiment on all TSP datasets
-    // Note: This will take some time as it runs n iterations for each algorithm on each dataset
-    // run_full_experiment()?;
-
+    run_full_experiment()?;
     Ok(())
 }
