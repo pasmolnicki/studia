@@ -19,17 +19,17 @@ fn dummy_test() {
     res.best_solution.visualize(Some("solved")).unwrap();
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() {
 
-    // dummy_test();
+    dummy_test();
 
-    let file_names = ["dj38.tsp", "qa194.tsp"];
+    // let file_names = ["dj38.tsp", "qa194.tsp"];
 
-    println!("{:?}", tsp::load_data(&file_names));
-    let data = tsp::load_data(&file_names);
-    let algo: algo::LocalSearchZ1 = algo::LocalSearchZ1;
-    data[0].points.visualize(Some("inital-dj38"))?;
-    let result = algo.run(&data[0], true);
-    result.best_solution.visualize(Some("solved-dj38"))?;
-    Ok(())
+    // println!("{:?}", tsp::load_data(&file_names));
+    // let data = tsp::load_data(&file_names);
+    // let algo: algo::LocalSearchZ1 = algo::LocalSearchZ1;
+    // data[0].points.visualize(Some("inital-dj38"))?;
+    // let result = algo.run(&data[0], true);
+    // result.best_solution.visualize(Some("solved-dj38"))?;
+    // Ok(())
 }

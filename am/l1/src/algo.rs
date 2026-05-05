@@ -158,7 +158,7 @@ impl InversionIter {
             tsp::point_distance(points.points[self.j + 1], points.points[self.i])
         } else { 0 };
 
-        self.orig_distance - prev_dist_to_i - prev_dist_after_j + new_dist_to_i + new_dist_after_j
+        self.orig_distance + new_dist_to_i + new_dist_after_j - prev_dist_to_i - prev_dist_after_j
     }
 
     fn increment(&mut self, points: &VecPoints) {        

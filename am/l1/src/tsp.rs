@@ -65,6 +65,18 @@ impl VecPoints {
         total
     }
 
+    pub fn distance_matrix(&self) -> Vec<Vec<u64>> {
+        let mut m = vec![vec![0u64; self.points.len()]; self.points.len()];
+
+        for (i, v) in m.iter_mut().enumerate() {
+            for (j, val) in v.iter_mut().enumerate() {
+                *val = point_distance(self.points[i], self.points[j])
+            }
+        }
+
+        m
+    }
+
     pub fn permutation(&self, rng: &mut dyn Rng) -> Self {
         let mut points = self.points.clone();
         points.shuffle(rng);
