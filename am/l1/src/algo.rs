@@ -1,5 +1,6 @@
-use crate::tsp::{self, VecPoints};
-use rand;
+use crate::tsp::{self, VecPoints, point_distance};
+use rand::{Rng, RngExt};
+use rand::seq::SliceRandom;
 use serde::{Serialize};
 use std::fs::File;
 use std::io::Write;
@@ -15,9 +16,9 @@ pub struct TspAlgorithmResult {
 }
 
 pub struct LocalSearchResult {
-    distance: f64,
-    n_steps: u64,
-    solution: tsp::VecPoints,
+    pub distance: i64,
+    pub n_steps: u64,
+    pub solution: tsp::VecPoints,
 }
 
 pub trait NamedObject {
@@ -36,7 +37,7 @@ impl NamedObject for tsp::VecPoints {
     }
 }
 
-fn gen_permuntations(data: &tsp::Data, n: usize, rng: &mut dyn rand::Rng) -> Vec<tsp::VecPoints> {
+fn gen_permuntations(data: &tsp::Data, n: usize, rng: &mut dyn Rng) -> Vec<tsp::VecPoints> {
     (0..n).map(|_| data.points.permutation(rng)).collect()
 }
 
@@ -50,6 +51,99 @@ pub fn save_to_file<T: NamedObject + serde::Serialize>(result: T, file_name: &st
     file.write_all(serialized.as_bytes()).expect("Couldn't write to file");
 }
 
+// Distance matrix builder - pre-computes distances between all pairs of points
+pub struct DistanceMatrix {
+    matrix: Vec<Vec<i64>>,
+}
+
+impl DistanceMatrix {
+    fn new(points: &[(f64, f64)]) -> Self {
+        let n = points.len();
+        let mut matrix = vec![vec![0i64; n]; n];
+
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let dist = point_distance(points[i], points[j]) as i64;
+                matrix[i][j] = dist;
+                matrix[j][i] = dist;
+            }
+        }
+
+        DistanceMatrix { matrix }
+    }
+
+    fn get(&self, i: usize, j: usize) -> i64 {
+        self.matrix[i][j]
+    }
+
+    fn calculate_tour_length(&self, route: &[usize]) -> i64 {
+        let n = route.len();
+        let mut sum = 0i64;
+        for i in 1..n {
+            sum += self.get(route[i - 1], route[i]);
+        }
+        sum += self.get(route[n - 1], route[0]);
+        sum
+    }
+}
+
+// Invert move: reverses the sequence from index i to j
+fn apply_invert(route: &mut [usize], i: usize, j: usize) {
+    let mut left = i;
+    let mut right = j;
+    while left < right {
+        route.swap(left, right);
+        left += 1;
+        right -= 1;
+    }
+}
+
+// Calculate the delta (cost change) of inverting from i to j
+fn calculate_invert_delta(dist_matrix: &DistanceMatrix, route: &[usize], i: usize, j: usize) -> i64 {
+    let n = route.len();
+    let im1 = (i as i32 - 1).rem_euclid(n as i32) as usize;
+    let jp1 = (j + 1) % n;
+
+    let old_cost = dist_matrix.get(route[im1], route[i]) + dist_matrix.get(route[j], route[jp1]);
+    let new_cost = dist_matrix.get(route[im1], route[j]) + dist_matrix.get(route[i], route[jp1]);
+
+    new_cost - old_cost
+}
+
+// Transpose move: swaps elements at positions i and j
+fn apply_transpose(route: &mut [usize], i: usize, j: usize) {
+    route.swap(i, j);
+}
+
+// Calculate the delta (cost change) of transposing positions i and j
+fn calculate_transpose_delta(dist_matrix: &DistanceMatrix, route: &[usize], i: usize, j: usize) -> i64 {
+    let n = route.len();
+    let im1 = (i as i32 - 1).rem_euclid(n as i32) as usize;
+    let ip1 = (i + 1) % n;
+    let jm1 = (j as i32 - 1).rem_euclid(n as i32) as usize;
+    let jp1 = (j + 1) % n;
+
+    let a = route[i];
+    let b = route[j];
+
+    if (i + 1 == j) || (i == 0 && j == n - 1) {
+        let first_idx = if i == 0 && j == n - 1 { j } else { i };
+        let second_idx = if i == 0 && j == n - 1 { i } else { j };
+        let prev = (first_idx as i32 - 1).rem_euclid(n as i32) as usize;
+        let next = (second_idx + 1) % n;
+
+        let old_cost = dist_matrix.get(route[prev], route[first_idx]) + dist_matrix.get(route[second_idx], route[next]);
+        let new_cost = dist_matrix.get(route[prev], route[second_idx]) + dist_matrix.get(route[first_idx], route[next]);
+        new_cost - old_cost
+    } else {
+        let old_cost = dist_matrix.get(route[im1], a) + dist_matrix.get(a, route[ip1])
+            + dist_matrix.get(route[jm1], b) + dist_matrix.get(b, route[jp1]);
+        let new_cost = dist_matrix.get(route[im1], b) + dist_matrix.get(b, route[ip1])
+            + dist_matrix.get(route[jm1], a) + dist_matrix.get(a, route[jp1]);
+        new_cost - old_cost
+    }
+}
+
 /*
 Zadanie 1. Wykonaj algorytm Local Search dla n losowych permutacji (n to liczba wierzchołków).
 Dla każdych danych podaj średnią wartość uzyskanego rozwiązania, 
@@ -57,177 +151,271 @@ Dla każdych danych podaj średnią wartość uzyskanego rozwiązania,
 */
 
 pub trait TspProcedure {
-    fn local_search(&self, points: &tsp::VecPoints) -> LocalSearchResult;
+    fn local_search(&self, points: &tsp::VecPoints, dist_matrix: &DistanceMatrix) -> LocalSearchResult;
 
-    fn run(&self, data: &tsp::Data, print: bool) -> TspAlgorithmResult {
-        let mut result = TspAlgorithmResult {
-            name: format!("LocalSearchZ1_{}", data.name),
-            mean_distance: 0,
-            mean_n_steps: 0,
-            best_solution: data.points.clone(),
-        };
-
-        let mut min_distance = f64::MAX;
-        let mut rng = rand::rng();
-        let permutations = gen_permuntations(data, data.points.points.len(), &mut rng);
-
-        for (i, perm) in permutations.iter().enumerate() {
-            let solution = self.local_search(perm);
-
-            if solution.distance < min_distance {
-                min_distance = solution.distance;
-                result.best_solution = solution.solution;
-            }
-
-            result.mean_distance += (solution.distance as i64 - result.mean_distance) / (i as i64 + 1);
-            result.mean_n_steps += (solution.n_steps as i64 - result.mean_n_steps) / (i as i64 + 1);
-
-            if print {
-                print!("\r{}: {}/{}", result.name, i + 1, permutations.len());
-                std::io::stdout().flush().unwrap();
-            }
-        }
-
-        if print {
-            println!("\n{}: mean_distance = {}, mean_n_steps = {}, best_distance = {}", 
-                result.name, result.mean_distance, result.mean_n_steps, min_distance);
-        }
-        result
-    }
+    fn run(&self, data: &tsp::Data, print: bool) -> TspAlgorithmResult;
 }
 
 pub struct LocalSearchZ1;
 
-// The idea behind this struct is to store
-// (i, j) pair of indices that we want to invert in the current solution
-// and also store the original distance of the solution before applying the inversion
-// so that we can calculate the new distance after inversion in constant time
-// by calculating the difference in distance caused by the inversion of (i, j) and adding it to the original distance
-#[derive(Clone, Debug)]
-struct InversionIter {
-    i: usize,
-    j: usize,
-    orig_distance: f64,
-}
-
-impl InversionIter {
-    pub fn new(points: &VecPoints) -> Self {
-        Self { i: 0, j: 1, orig_distance: points.calc_distance() }
-    }
-
-    pub fn next(&self, points: &VecPoints) -> Option<Self> {
-        if self.i >= points.points.len() - 1 {
-            return None;
-        }
-
-        let mut ret = Self{ i: self.i, j: self.j, orig_distance: self.orig_distance };
-        ret.increment(points);
-        Some(ret)
-    }
-
-    pub fn invert(&mut self, points: &mut VecPoints) {
-        let new_distance = self.calculate_inversion_new_distance(points);
-        points.points.swap(self.i, self.j);
-        self.orig_distance = new_distance;
-    }
-
-    pub fn reset(&mut self) {
-        self.i = 0;
-        self.j = 1;
-    }
-
-    fn calculate_inversion_new_distance(&self, points: &VecPoints) -> f64 {
-        // Now calculate partial update for distance after inversion of (i, j)
-        // Consider the following case:
-        // M = (1, 5, 2, 3, 4) - original order
-        // (i, j) = (1, 2) - we want to invert index 1 and 2
-        // M` = (1, 2, 5, 3, 4) - new order
-        // What changed in distance? (3-4) stayed the same, but (1-5) and (5-2) changed to (1-2) and (2-5)
-        // So we need to calculate:
-        // new_distance = old_distance - dist(1, 5) - dist(5, 2) + dist(1, 2) + dist(2, 5)
-        let prev_dist_to_i = if self.i > 0 {
-            tsp::point_distance(points.points[self.i - 1], points.points[self.i])
-        } else { 0.0 };
-        let prev_dist_after_j = if self.j < points.points.len() - 1 {
-            tsp::point_distance(points.points[self.j + 1], points.points[self.j])
-        } else { 0.0 };
-        let new_dist_to_i = if self.i > 0 {
-            tsp::point_distance(points.points[self.i - 1], points.points[self.j])
-        } else { 0.0 };
-        let new_dist_after_j = if self.j < points.points.len() - 1 {
-            tsp::point_distance(points.points[self.j + 1], points.points[self.i])
-        } else { 0.0 };
-
-        self.orig_distance + new_dist_to_i + new_dist_after_j - prev_dist_to_i - prev_dist_after_j
-    }
-
-    fn increment(&mut self, points: &VecPoints) {        
-        self.j += 1;
-        if self.j >= points.points.len() {
-            self.i += 1;
-            self.j = if self.i >= points.points.len() - 1 { 0 } else { self.i + 1 };
-        }
-        self.orig_distance = self.calculate_inversion_new_distance(points);
-    }
-}
-
 impl TspProcedure for LocalSearchZ1 {
-    fn local_search(&self, points: &VecPoints) -> LocalSearchResult {
-        // Simply do the following until we can't improve the solution anymore:
-        // 1. For each pair of indices (i, j) calculate the new distance
-        // 2. Choose the best pair (i, j) that gives the best improvement and apply the inversion
-        // 3. Repeat until no improvement is possible
-        let mut iter = InversionIter::new(points);
-        let mut current_solution = points.clone();
-        let mut n_steps = 0;
-        let mut best_distance = iter.orig_distance;
+    fn local_search(&self, points: &VecPoints, dist_matrix: &DistanceMatrix) -> LocalSearchResult {
+        let mut route: Vec<usize> = (0..points.points.len()).collect();
+        let mut rng = rand::rng();
+        route.shuffle(&mut rng);
 
-        loop {
-            let mut best_iter = None;
-            loop {
-                // Check if the current iteration gives us a better solution
-                if iter.orig_distance < best_distance {
-                    best_distance = iter.orig_distance;
-                    best_iter = Some(iter.clone());
-                }
+        let mut len = dist_matrix.calculate_tour_length(&route);
+        let mut steps = 0u64;
 
-                // Move to the next iteration
-                if let Some(next_iter) = iter.next(&current_solution) {
-                    iter = next_iter;
-                } else {
-                    break;
+        let improved_flag = true;
+        while improved_flag {
+            let mut best_delta = 0i64;
+            let mut best_i = 0;
+            let mut best_j = 1;
+            let mut found_improvement = false;
+
+            let n = route.len();
+            for i in 0..(n - 1) {
+                for j in (i + 1)..n {
+                    if i == 0 && j == n - 1 {
+                        continue;
+                    }
+
+                    let d = calculate_invert_delta(dist_matrix, &route, i, j);
+                    if d < best_delta {
+                        best_delta = d;
+                        best_i = i;
+                        best_j = j;
+                        found_improvement = true;
+                    }
                 }
             }
 
-            // Apply the best inversion found in this iteration
-            if let Some(mut best_iter) = best_iter {
-                best_iter.invert(&mut current_solution);
-                iter = best_iter;
-                iter.reset();
-                n_steps += 1;
+            if found_improvement && best_delta < 0 {
+                apply_invert(&mut route, best_i, best_j);
+                len += best_delta;
+                steps += 1;
             } else {
                 break;
             }
-
-            print!("\r\tCD: {}, BS: {}, Steps: {}", iter.orig_distance, best_distance, n_steps);
-            std::io::stdout().flush().unwrap();
         }
 
-        LocalSearchResult { distance: iter.orig_distance, n_steps, solution: current_solution }
+        let solution = VecPoints {
+            points: route.iter().map(|&idx| points.points[idx]).collect(),
+            name: points.name.clone(),
+        };
+
+        LocalSearchResult {
+            distance: len,
+            n_steps: steps,
+            solution,
+        }
+    }
+
+    fn run(&self, data: &tsp::Data, print: bool) -> TspAlgorithmResult {
+        let dist_matrix = DistanceMatrix::new(&data.points.points);
+        let n = data.points.points.len();
+
+        let mut total_distance = 0i64;
+        let mut total_steps = 0u64;
+        let mut best_distance = i64::MAX;
+        let mut best_solution = data.points.clone();
+
+        for i in 0..n {
+            if print && i % 10 == 0 {
+                println!("{}", i);
+            }
+
+            let result = self.local_search(&data.points, &dist_matrix);
+            total_distance += result.distance;
+            total_steps += result.n_steps;
+
+            if result.distance < best_distance {
+                best_distance = result.distance;
+                best_solution = result.solution;
+            }
+        }
+
+        TspAlgorithmResult {
+            name: format!("LocalSearchZ1_{}", data.name),
+            mean_distance: total_distance / n as i64,
+            mean_n_steps: (total_steps / n as u64) as i64,
+            best_solution,
+        }
     }
 }
 
+pub struct LocalSearchZ2;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+impl TspProcedure for LocalSearchZ2 {
+    fn local_search(&self, points: &VecPoints, dist_matrix: &DistanceMatrix) -> LocalSearchResult {
+        let mut route: Vec<usize> = (0..points.points.len()).collect();
+        let mut rng = rand::rng();
+        route.shuffle(&mut rng);
 
-    #[test]
-    fn test_inversion_iter() {
-        let mut points = tsp::load_data(&["qa194.tsp"])[0].points.clone();
-        let mut iter = InversionIter::new(&points);
+        let mut len = dist_matrix.calculate_tour_length(&route);
+        let mut steps = 0u64;
 
-        iter.invert(&mut points);
-        assert_eq!(iter.orig_distance, points.calc_distance());
+        let improved_flag = true;
+        while improved_flag {
+            let mut best_delta = 0i64;
+            let mut best_i = 0;
+            let mut best_j = 1;
+            let mut found_improvement = false;
+
+            let n = route.len();
+            for _ in 0..n {
+                let i = rng.random_range(0..n);
+                let j = rng.random_range(0..n);
+
+                if i >= j || (i == 0 && j == n - 1) {
+                    continue;
+                }
+
+                let d = calculate_invert_delta(dist_matrix, &route, i, j);
+                if d < best_delta {
+                    best_delta = d;
+                    best_i = i;
+                    best_j = j;
+                    found_improvement = true;
+                }
+            }
+
+            if found_improvement && best_delta < 0 {
+                apply_invert(&mut route, best_i, best_j);
+                len += best_delta;
+                steps += 1;
+            } else {
+                break;
+            }
+        }
+
+        let solution = VecPoints {
+            points: route.iter().map(|&idx| points.points[idx]).collect(),
+            name: points.name.clone(),
+        };
+
+        LocalSearchResult {
+            distance: len,
+            n_steps: steps,
+            solution,
+        }
+    }
+
+    fn run(&self, data: &tsp::Data, print: bool) -> TspAlgorithmResult {
+        let dist_matrix = DistanceMatrix::new(&data.points.points);
+        let n = data.points.points.len();
+
+        let mut total_distance = 0i64;
+        let mut total_steps = 0u64;
+        let mut best_distance = i64::MAX;
+        let mut best_solution = data.points.clone();
+
+        for i in 0..n {
+            if print && i % 10 == 0 {
+                println!("{}", i);
+            }
+
+            let result = self.local_search(&data.points, &dist_matrix);
+            total_distance += result.distance;
+            total_steps += result.n_steps;
+
+            if result.distance < best_distance {
+                best_distance = result.distance;
+                best_solution = result.solution;
+            }
+        }
+
+        TspAlgorithmResult {
+            name: format!("LocalSearchZ2_{}", data.name),
+            mean_distance: total_distance / n as i64,
+            mean_n_steps: (total_steps / n as u64) as i64,
+            best_solution,
+        }
+    }
+}
+
+pub struct LocalSearchZ3;
+
+impl TspProcedure for LocalSearchZ3 {
+    fn local_search(&self, points: &VecPoints, dist_matrix: &DistanceMatrix) -> LocalSearchResult {
+        let mut route: Vec<usize> = (0..points.points.len()).collect();
+        let mut rng = rand::rng();
+        route.shuffle(&mut rng);
+
+        let mut len = dist_matrix.calculate_tour_length(&route);
+        let mut steps = 0u64;
+
+        let improved_flag = true;
+        while improved_flag {
+            let mut best_delta = 0i64;
+            let mut best_i = 0;
+            let mut best_j = 1;
+            let mut found_improvement = false;
+
+            let n = route.len();
+            for i in 0..(n - 1) {
+                for j in (i + 1)..n {
+                    let d = calculate_transpose_delta(dist_matrix, &route, i, j);
+                    if d < best_delta {
+                        best_delta = d;
+                        best_i = i;
+                        best_j = j;
+                        found_improvement = true;
+                    }
+                }
+            }
+
+            if found_improvement && best_delta < 0 {
+                apply_transpose(&mut route, best_i, best_j);
+                len += best_delta;
+                steps += 1;
+            } else {
+                break;
+            }
+        }
+
+        let solution = VecPoints {
+            points: route.iter().map(|&idx| points.points[idx]).collect(),
+            name: points.name.clone(),
+        };
+
+        LocalSearchResult {
+            distance: len,
+            n_steps: steps,
+            solution,
+        }
+    }
+
+    fn run(&self, data: &tsp::Data, print: bool) -> TspAlgorithmResult {
+        let dist_matrix = DistanceMatrix::new(&data.points.points);
+        let n = data.points.points.len();
+
+        let mut total_distance = 0i64;
+        let mut total_steps = 0u64;
+        let mut best_distance = i64::MAX;
+        let mut best_solution = data.points.clone();
+
+        for i in 0..n {
+            if print && i % 10 == 0 {
+                println!("{}", i);
+            }
+
+            let result = self.local_search(&data.points, &dist_matrix);
+            total_distance += result.distance;
+            total_steps += result.n_steps;
+
+            if result.distance < best_distance {
+                best_distance = result.distance;
+                best_solution = result.solution;
+            }
+        }
+
+        TspAlgorithmResult {
+            name: format!("LocalSearchZ3_{}", data.name),
+            mean_distance: total_distance / n as i64,
+            mean_n_steps: (total_steps / n as u64) as i64,
+            best_solution,
+        }
     }
 }
