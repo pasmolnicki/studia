@@ -209,15 +209,12 @@ fn run_reapted_experiment(algo: &dyn TspProcedure, n: i32, algo_name: &str) -> R
 #[allow(dead_code)]
 fn run_full_experiment() -> Result<(), Box<dyn Error>> {
     // These are the TSP problem instances to solve
-    let file_names = [
-        "dj38.tsp", "qa194.tsp", "uy734.tsp", "wi29.tsp", "zi929.tsp",
-        "mu1979.tsp", "ca4663.tsp", "tz6117.tsp", "eg7146.tsp", "ei8246.tsp"];
-    let data_list = tsp::load_data(&file_names);
+    let data_list = load_below_1k_data_sets();
     
     for data in data_list.iter() {
         println!("Processing: {}", data.name);
         
-        // run_experiment(&LocalSearchZ1, data, "Z1")?;
+        run_experiment(&LocalSearchZ1, data, "Z1")?;
         // run_experiment(&LocalSearchZ2, data, "Z2")?;
         // run_experiment(&LocalSearchZ3, data, "Z3")?;
         
@@ -228,10 +225,10 @@ fn run_full_experiment() -> Result<(), Box<dyn Error>> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // run_full_experiment()?;
+    run_full_experiment()?;
     // optimize_simulated_annealing_base()?;
     // optimize_tabu_search()?;
-    run_reapted_experiment(&SimulatedAnnealingBase::default(), 100, "simulated_ann")?;
+    // run_reapted_experiment(&SimulatedAnnealingBase::default(), 100, "simulated_ann")?;
 
 
     // Test on smaller dataset to verify all 5 algorithms work
