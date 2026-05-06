@@ -30,8 +30,8 @@ def main():
         print(f"Dimension: {d}, Accuracy: {accuracy:.4f}")
 
     plt.figure(figsize=(10, 6))
-    plt.plot(dimensions, accuracies, marker='o')
-    plt.axhline(0.5, color='red', linestyle='--', label='Random Classifier Accuracy (0.5)')
+    plt.plot(dimensions, accuracies, marker='o', label='KNN, K=1')
+    plt.axhline(0.5, color='red', linestyle='--', label='Random Classifier(0.5)')
     plt.xlabel('Dimension')
     plt.ylabel('Accuracy')
     plt.title('KNN Accuracy vs Dimension')
@@ -39,4 +39,5 @@ def main():
     plt.grid()
     plt.show()
 
-if __name__ == "__main__":    main()
+if __name__ == "__main__":
+    main()

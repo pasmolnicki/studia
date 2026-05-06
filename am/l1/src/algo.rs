@@ -16,7 +16,7 @@ pub struct TspAlgorithmResult {
     pub best_solution: tsp::VecPoints,
 }
 
-pub struct LocalSearchResult {
+pub struct AlgoSearchResult {
     pub distance: i64,
     pub n_steps: u64,
     pub solution: tsp::VecPoints,
@@ -36,10 +36,6 @@ impl NamedObject for tsp::VecPoints {
     fn name(&self) -> &str {
         &self.name
     }
-}
-
-fn gen_permuntations(data: &tsp::Data, n: usize, rng: &mut dyn Rng) -> Vec<tsp::VecPoints> {
-    (0..n).map(|_| data.points.permutation(rng)).collect()
 }
 
 pub fn save_to_file<T: NamedObject + serde::Serialize>(result: T, file_name: &str) {
@@ -152,7 +148,7 @@ Dla każdych danych podaj średnią wartość uzyskanego rozwiązania,
 */
 
 pub trait TspProcedure {
-    fn local_search(&self, points: &tsp::VecPoints, dist_matrix: &DistanceMatrix) -> LocalSearchResult;
+    fn algo(&self, points: &tsp::VecPoints, dist_matrix: &DistanceMatrix) -> AlgoSearchResult;
 
     fn run(&self, data: &tsp::Data, print: bool) -> TspAlgorithmResult;
 }
@@ -160,7 +156,7 @@ pub trait TspProcedure {
 pub struct LocalSearchZ1;
 
 impl TspProcedure for LocalSearchZ1 {
-    fn local_search(&self, points: &VecPoints, dist_matrix: &DistanceMatrix) -> LocalSearchResult {
+    fn algo(&self, points: &VecPoints, dist_matrix: &DistanceMatrix) -> AlgoSearchResult {
         let mut route: Vec<usize> = (0..points.points.len()).collect();
         let mut rng = rand::rng();
         route.shuffle(&mut rng);
@@ -203,7 +199,7 @@ impl TspProcedure for LocalSearchZ1 {
             name: points.name.clone(),
         };
 
-        LocalSearchResult {
+        AlgoSearchResult {
             distance: len,
             n_steps: steps,
             solution,
@@ -224,7 +220,7 @@ impl TspProcedure for LocalSearchZ1 {
         }
 
         for i in 0..n {
-            let result = self.local_search(&data.points, &dist_matrix);
+            let result = self.algo(&data.points, &dist_matrix);
             total_distance += result.distance;
             total_steps += result.n_steps;
 
@@ -259,7 +255,7 @@ impl TspProcedure for LocalSearchZ1 {
 pub struct LocalSearchZ2;
 
 impl TspProcedure for LocalSearchZ2 {
-    fn local_search(&self, points: &VecPoints, dist_matrix: &DistanceMatrix) -> LocalSearchResult {
+    fn algo(&self, points: &VecPoints, dist_matrix: &DistanceMatrix) -> AlgoSearchResult {
         let mut route: Vec<usize> = (0..points.points.len()).collect();
         let mut rng = rand::rng();
         route.shuffle(&mut rng);
@@ -306,7 +302,7 @@ impl TspProcedure for LocalSearchZ2 {
             name: points.name.clone(),
         };
 
-        LocalSearchResult {
+        AlgoSearchResult {
             distance: len,
             n_steps: steps,
             solution,
@@ -327,7 +323,7 @@ impl TspProcedure for LocalSearchZ2 {
         }
 
         for i in 0..n {
-            let result = self.local_search(&data.points, &dist_matrix);
+            let result = self.algo(&data.points, &dist_matrix);
             total_distance += result.distance;
             total_steps += result.n_steps;
 
@@ -362,7 +358,7 @@ impl TspProcedure for LocalSearchZ2 {
 pub struct LocalSearchZ3;
 
 impl TspProcedure for LocalSearchZ3 {
-    fn local_search(&self, points: &VecPoints, dist_matrix: &DistanceMatrix) -> LocalSearchResult {
+    fn algo(&self, points: &VecPoints, dist_matrix: &DistanceMatrix) -> AlgoSearchResult {
         let mut route: Vec<usize> = (0..points.points.len()).collect();
         let mut rng = rand::rng();
         route.shuffle(&mut rng);
@@ -404,7 +400,7 @@ impl TspProcedure for LocalSearchZ3 {
             name: points.name.clone(),
         };
 
-        LocalSearchResult {
+        AlgoSearchResult {
             distance: len,
             n_steps: steps,
             solution,
@@ -425,7 +421,7 @@ impl TspProcedure for LocalSearchZ3 {
         }
 
         for i in 0..n {
-            let result = self.local_search(&data.points, &dist_matrix);
+            let result = self.algo(&data.points, &dist_matrix);
             total_distance += result.distance;
             total_steps += result.n_steps;
 
@@ -457,27 +453,52 @@ impl TspProcedure for LocalSearchZ3 {
     }
 }
 
-// Simulated Annealing - metaheuristic that accepts worse solutions with decreasing probability
-pub struct SimulatedAnnealingBase {
+pub struct SimulatedAnnealingParams {
     pub initial_temperature: f64,
     pub cooling_factor: f64,
     pub epoch_length: usize,
     pub no_improve_limit: u64,
 }
 
+impl Default for SimulatedAnnealingParams {
+    fn default() -> Self {
+        Self {
+            initial_temperature: 20.0,
+            cooling_factor: 0.95,
+            epoch_length: 100,
+            no_improve_limit: 5,
+        }
+    }
+}
+
+// Simulated Annealing - metaheuristic that accepts worse solutions with decreasing probability
+pub struct SimulatedAnnealingBase {
+    pub params: SimulatedAnnealingParams,
+}
+
 impl Default for SimulatedAnnealingBase {
     fn default() -> Self {
         Self {
-            initial_temperature: 5.0,
-            cooling_factor: 0.95,
-            epoch_length: 50,
-            no_improve_limit: 30,
+            params: SimulatedAnnealingParams::default(),
+        }
+    }
+}
+
+impl SimulatedAnnealingBase {
+    pub fn new(initial_temperature: f64, cooling_factor: f64, epoch: usize, no_improve_limit: u64) -> Self {
+        Self {
+            params: SimulatedAnnealingParams {
+                initial_temperature,
+                cooling_factor,
+                epoch_length: epoch,
+                no_improve_limit,
+            }
         }
     }
 }
 
 impl TspProcedure for SimulatedAnnealingBase {
-    fn local_search(&self, points: &VecPoints, dist_matrix: &DistanceMatrix) -> LocalSearchResult {
+    fn algo(&self, points: &VecPoints, dist_matrix: &DistanceMatrix) -> AlgoSearchResult {
         let mut route: Vec<usize> = (0..points.points.len()).collect();
         let mut rng = rand::rng();
         route.shuffle(&mut rng);
@@ -486,7 +507,7 @@ impl TspProcedure for SimulatedAnnealingBase {
         let mut best_len = len;
         let mut best_route = route.clone();
         let mut steps = 0u64;
-        let mut temperature = self.initial_temperature;
+        let mut temperature = self.params.initial_temperature;
 
         for iteration in 0..1000 {
             // Randomly select a neighbor (invert move)
@@ -520,7 +541,7 @@ impl TspProcedure for SimulatedAnnealingBase {
 
             // Cooling schedule
             if iteration % 10 == 0 {
-                temperature *= self.cooling_factor;
+                temperature *= self.params.cooling_factor;
             }
         }
 
@@ -529,7 +550,7 @@ impl TspProcedure for SimulatedAnnealingBase {
             name: points.name.clone(),
         };
 
-        LocalSearchResult {
+        AlgoSearchResult {
             distance: best_len,
             n_steps: steps,
             solution,
@@ -550,7 +571,7 @@ impl TspProcedure for SimulatedAnnealingBase {
         }
 
         for i in 0..n {
-            let result = self.local_search(&data.points, &dist_matrix);
+            let result = self.algo(&data.points, &dist_matrix);
             total_distance += result.distance;
             total_steps += result.n_steps;
 
@@ -582,25 +603,50 @@ impl TspProcedure for SimulatedAnnealingBase {
     }
 }
 
-// Tabu Search - search with memory of recent moves
-pub struct TabuSearchBase {
+
+pub struct TabuSearchParams {
     pub tabu_tenure: usize,
     pub max_iterations: usize,
     pub no_improve_limit: u64,
 }
 
-impl Default for TabuSearchBase {
+impl Default for TabuSearchParams {
     fn default() -> Self {
         Self {
-            tabu_tenure: 0, // Will be set to n/2 in local_search
+            tabu_tenure: 0, // Will be set to n/2 in algo
             max_iterations: 500,
             no_improve_limit: 100,
         }
     }
 }
 
+// Tabu Search - search with memory of recent moves
+pub struct TabuSearchBase {
+    pub params: TabuSearchParams,
+}
+
+impl Default for TabuSearchBase {
+    fn default() -> Self {
+        Self {
+            params: TabuSearchParams::default(),
+        }
+    }
+}
+
+impl TabuSearchBase {
+    pub fn new(tabu_tenure: usize, max_iterations: usize, no_improve_limit: u64) -> Self {
+        Self {
+            params: TabuSearchParams {
+                tabu_tenure,
+                max_iterations,
+                no_improve_limit,
+            }
+        }
+    }
+}
+
 impl TspProcedure for TabuSearchBase {
-    fn local_search(&self, points: &VecPoints, dist_matrix: &DistanceMatrix) -> LocalSearchResult {
+    fn algo(&self, points: &VecPoints, dist_matrix: &DistanceMatrix) -> AlgoSearchResult {
         let mut route: Vec<usize> = (0..points.points.len()).collect();
         let mut rng = rand::rng();
         route.shuffle(&mut rng);
@@ -612,9 +658,9 @@ impl TspProcedure for TabuSearchBase {
         let mut no_improve_count = 0u64;
 
         // Tabu list: FIFO queue storing (i, j) move pairs
-        let mut tabu_list: Vec<(usize, usize)> = Vec::with_capacity(self.tabu_tenure);
-        let actual_tenure = if self.tabu_tenure > 0 {
-            self.tabu_tenure
+        let mut tabu_list: Vec<(usize, usize)> = Vec::with_capacity(self.params.tabu_tenure);
+        let actual_tenure = if self.params.tabu_tenure > 0 {
+            self.params.tabu_tenure
         } else {
             (points.points.len() / 2).max(5)
         };
@@ -622,7 +668,7 @@ impl TspProcedure for TabuSearchBase {
         let n = route.len();
         let mut iteration = 0;
 
-        while iteration < self.max_iterations && no_improve_count < self.no_improve_limit {
+        while iteration < self.params.max_iterations && no_improve_count < self.params.no_improve_limit {
             let mut best_move_delta = i64::MAX;
             let mut best_move = (0, 1);
 
@@ -682,7 +728,7 @@ impl TspProcedure for TabuSearchBase {
             name: points.name.clone(),
         };
 
-        LocalSearchResult {
+        AlgoSearchResult {
             distance: best_len,
             n_steps: steps,
             solution,
@@ -703,7 +749,7 @@ impl TspProcedure for TabuSearchBase {
         }
 
         for i in 0..n {
-            let result = self.local_search(&data.points, &dist_matrix);
+            let result = self.algo(&data.points, &dist_matrix);
             total_distance += result.distance;
             total_steps += result.n_steps;
 

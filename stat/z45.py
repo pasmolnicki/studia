@@ -25,10 +25,9 @@ def main():
     dims = [1, 2, 5, 10, 50, 100, 500]
     n = 500
 
-    # Plot the R_d as function of dimension
-    R_d_values = [calc_statistic(n, dim) for dim in dims]
+    R_d = [calc_statistic(n, dim) for dim in dims]
     plt.figure(figsize=(10, 6))
-    plt.plot(dims, R_d_values, marker='o')
+    plt.plot(dims, R_d, marker='o')
     plt.xscale('log')
     plt.xlabel('Dimension (log scale)')
     plt.ylabel('R(d)')

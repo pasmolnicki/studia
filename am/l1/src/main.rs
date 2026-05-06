@@ -53,6 +53,129 @@ fn save_to_csv(data: &Data, procedure_name: &str, result: &algo::TspAlgorithmRes
     Ok(())
 }
 
+#[allow(dead_code)]
+fn load_small_data_sets() -> Vec<Data> {
+    tsp::load_data(&["wi29.tsp", "dj38.tsp", "qa194.tsp"])
+}
+
+#[allow(dead_code)]
+fn load_below_1k_data_sets() -> Vec<Data> {
+    tsp::load_data(&["wi29.tsp", "dj38.tsp", "qa194.tsp", "uy734.tsp", "zi929.tsp"])
+}
+
+#[allow(dead_code)]
+fn load_all_data() -> Vec<Data> {
+    tsp::load_data(&[
+        "wi29.tsp", "dj38.tsp", "qa194.tsp", "uy734.tsp", "zi929.tsp",
+        "mu1979.tsp", "ca4663.tsp", "tz6117.tsp", "eg7146.tsp", "ei8246.tsp"])
+}
+
+#[allow(dead_code)]
+fn optimize_simulated_annealing_base() -> Result<(), Box<dyn Error>> {
+    let csv_path = format!("results/sa_parameter_tuning.csv");
+    let mut wtr = csv::Writer::from_path(&csv_path)?;
+    wtr.write_record(&["initial_temperature", "cooling_factor", "epoch_length", "no_improve_limit", "avg_distance"])?;
+
+    let data = load_below_1k_data_sets();
+    let temperatures = [1.0, 5.0, 10.0, 20.0, 50.0, 75.0, 100.0];
+    let cooling_factors = [0.8, 0.85, 0.90, 0.95, 0.99];
+    let epoch_lengths = [10, 20, 35, 50, 100];
+    let no_improve_limits = [5, 10, 15, 20, 30];
+
+    let mut best_params = algo::SimulatedAnnealingParams {
+        initial_temperature: 0.0,
+        cooling_factor: 0.0,
+        epoch_length: 0,
+        no_improve_limit: 0,
+    };
+
+    let mut best_mean_distance = f64::INFINITY;
+    
+    for &temp in &temperatures {
+        for &cool in &cooling_factors {
+            for &epoch in &epoch_lengths {
+                for &no_improve in &no_improve_limits {
+                    let sa = SimulatedAnnealingBase::new(temp, cool, epoch, no_improve);
+                    let mut total_distance = 0.0;
+                    for d in data.iter() {
+                        let res = sa.run(d, false);
+                        total_distance += res.mean_distance as f64;
+                    }
+                    let avg_distance = total_distance / (data.len() as f64);
+
+                    wtr.write_record(&[temp.to_string(), cool.to_string(), epoch.to_string(), no_improve.to_string(), avg_distance.to_string()])?;
+                    println!("Temp: {}, Cool: {}, Epoch: {}, NoImprove: {} => AvgDist: {}", temp, cool, epoch, no_improve, avg_distance);
+                    if avg_distance < best_mean_distance {
+                        best_mean_distance = avg_distance;
+                        best_params = algo::SimulatedAnnealingParams {
+                            initial_temperature: temp,
+                            cooling_factor: cool,
+                            epoch_length: epoch,
+                            no_improve_limit: no_improve,
+                        };
+                    }
+                }
+            }
+        }
+    }
+
+    wtr.flush()?;
+    println!("\nBest Parameters: Temp: {}, Cool: {}, Epoch: {}, NoImprove: {} => AvgDist: {}", 
+        best_params.initial_temperature, best_params.cooling_factor, best_params.epoch_length, best_params.no_improve_limit, best_mean_distance);
+
+    Ok(())
+}
+
+
+#[allow(dead_code)]
+fn optimize_tabu_search() -> Result<(), Box<dyn Error>> {
+    let data = load_below_1k_data_sets();
+    let tabu_tenures = [5, 10, 15, 20, 30];
+    let max_iterations = [5, 10, 20, 30, 50];
+    let no_improve_limits = [5, 10, 15, 20, 30];
+    let csv_path = format!("results/ts_parameter_tuning.csv");
+    let mut wtr = csv::Writer::from_path(&csv_path)?;
+    wtr.write_record(&["tabu_tenure", "max_iterations", "no_improve_limit", "avg_distance"])?;
+
+    let mut best_params = algo::TabuSearchParams {
+        tabu_tenure: 0,
+        max_iterations: 0,
+        no_improve_limit: 0,
+    };
+
+    let mut best_mean_distance = f64::INFINITY;
+
+    for &tenure in &tabu_tenures {
+        for &max_iter in &max_iterations {
+            for &no_improve in &no_improve_limits {
+                let ts = TabuSearchBase::new(tenure, max_iter, no_improve);
+                let mut total_distance = 0.0;
+                for d in data.iter() {
+                    let res = ts.run(d, true);
+                    total_distance += res.mean_distance as f64;
+                }
+                let avg_distance = total_distance / (data.len() as f64);
+                println!("Tenure: {}, MaxIter: {}, NoImprove: {} => AvgDist: {}", tenure, max_iter, no_improve, avg_distance);
+                if avg_distance < best_mean_distance {
+                    best_mean_distance = avg_distance;
+                    best_params = algo::TabuSearchParams {
+                        tabu_tenure: tenure,
+                        max_iterations: max_iter,
+                        no_improve_limit: no_improve,
+                    };
+                    wtr.write_record(&[tenure.to_string(), max_iter.to_string(), no_improve.to_string(), avg_distance.to_string()])?;
+                }
+            }
+        }
+    }
+
+    wtr.flush()?;
+    println!("\nBest Parameters: Tenure: {}, MaxIter: {}, NoImprove: {} => AvgDist: {}", 
+        best_params.tabu_tenure, best_params.max_iterations, best_params.no_improve_limit, best_mean_distance);
+
+    Ok(())
+}
+
 /// Example of running all three algorithms on TSP datasets
 #[allow(dead_code)]
 fn run_full_experiment() -> Result<(), Box<dyn Error>> {
@@ -67,7 +190,8 @@ fn run_full_experiment() -> Result<(), Box<dyn Error>> {
         
         // run_experiment(&LocalSearchZ1, data, "Z1")?;
         // run_experiment(&LocalSearchZ2, data, "Z2")?;
-        run_experiment(&LocalSearchZ3, data, "Z3")?;
+        // run_experiment(&LocalSearchZ3, data, "Z3")?;
+        
         println!();
     }
     
@@ -75,7 +199,9 @@ fn run_full_experiment() -> Result<(), Box<dyn Error>> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    run_full_experiment()?;
+    // run_full_experiment()?;
+    // optimize_simulated_annealing_base()?;
+    optimize_tabu_search()?;
 
 
     // Test on smaller dataset to verify all 5 algorithms work
