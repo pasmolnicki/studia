@@ -16,6 +16,12 @@ pub struct TspAlgorithmResult {
     pub best_solution: tsp::VecPoints,
 }
 
+impl Default for TspAlgorithmResult {
+    fn default() -> Self {
+        Self { name: "name".to_string(), mean_distance: i64::MAX, mean_n_steps: i64::MAX, best_solution: VecPoints::new() }
+    }
+}
+
 pub struct AlgoSearchResult {
     pub distance: i64,
     pub n_steps: u64,

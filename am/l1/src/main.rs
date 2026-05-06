@@ -1,4 +1,4 @@
-use l1::{algo::{self, LocalSearchZ1, LocalSearchZ2, LocalSearchZ3, SimulatedAnnealingBase, TabuSearchBase}, tsp::{self, Data}};
+use l1::{algo::{self, LocalSearchZ1, LocalSearchZ2, LocalSearchZ3, SimulatedAnnealingBase, TabuSearchBase, TspAlgorithmResult}, tsp::{self, Data}};
 use algo::{TspProcedure};
 use std::{error::Error, path::PathBuf};
 
@@ -62,6 +62,12 @@ fn load_small_data_sets() -> Vec<Data> {
 fn load_below_1k_data_sets() -> Vec<Data> {
     tsp::load_data(&["wi29.tsp", "dj38.tsp", "qa194.tsp", "uy734.tsp", "zi929.tsp"])
 }
+
+#[allow(dead_code)]
+fn load_lagrge_data_sets() -> Vec<Data> {
+    tsp::load_data(&["mu1979.tsp", "ca4663.tsp", "tz6117.tsp", "eg7146.tsp", "ei8246.tsp"])
+}
+
 
 #[allow(dead_code)]
 fn load_all_data() -> Vec<Data> {
@@ -176,6 +182,29 @@ fn optimize_tabu_search() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[allow(dead_code)]
+fn run_reapted_experiment(algo: &dyn TspProcedure, n: i32, algo_name: &str) -> Result<(), Box<dyn Error>> {
+    let data_set = load_lagrge_data_sets();
+
+    for data in data_set.iter() {
+        let mut best_solution = TspAlgorithmResult::default();
+        for i in 0..n {
+            let result = algo.run(data, true);
+
+            if result.mean_distance < best_solution.mean_distance {
+                best_solution.best_solution = result.best_solution;
+            }
+
+            println!(" {} {}/{} mean_distance={} mean_n_steps={}", 
+                data.name, i, n, best_solution.mean_distance, best_solution.mean_n_steps);
+        }
+        best_solution.best_solution.visualize(Some(&format!("results/{}-{}.png", algo_name, n)))?;
+    }
+    
+
+    Ok(())
+}
+
 /// Example of running all three algorithms on TSP datasets
 #[allow(dead_code)]
 fn run_full_experiment() -> Result<(), Box<dyn Error>> {
@@ -201,7 +230,8 @@ fn run_full_experiment() -> Result<(), Box<dyn Error>> {
 fn main() -> Result<(), Box<dyn Error>> {
     // run_full_experiment()?;
     // optimize_simulated_annealing_base()?;
-    optimize_tabu_search()?;
+    // optimize_tabu_search()?;
+    run_reapted_experiment(&SimulatedAnnealingBase::default(), 100, "simulated_ann")?;
 
 
     // Test on smaller dataset to verify all 5 algorithms work
