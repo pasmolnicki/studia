@@ -174,21 +174,32 @@ impl TspProcedure for LocalSearchZ1 {
         while improved_flag {
             let n = route.len();
 
-            // Parallel evaluation of all neighborhood moves
-            // Generate all candidate (i, j) pairs and evaluate them in parallel
-            let best_move = (0..(n - 1))
-                .into_par_iter()
-                .flat_map(|i| {
-                    ((i + 1)..n)
-                        .into_par_iter()
-                        .map(move |j| (i, j))
-                })
-                .filter(|(i, j)| !(*i == 0 && *j == n - 1))
-                .map(|(i, j)| {
+            // let best_move = (0..(n - 1))
+            //     .into_par_iter()
+            //     .flat_map(|i| {
+            //         ((i + 1)..n)
+            //             .into_par_iter()
+            //             .map(move |j| (i, j))
+            //     })
+            //     .filter(|(i, j)| !(*i == 0 && *j == n - 1))
+            //     .map(|(i, j)| {
+            //         let delta = calculate_invert_delta(dist_matrix, &route, i, j);
+            //         (delta, i, j)
+            //     })
+            //     .min_by_key(|(delta, _, _)| *delta);
+
+            let mut best_move: Option<(i64, usize, usize)> = None;
+            for i in 0..(n - 1) {
+                for j in (i + 1)..n {
+                    if i == 0 && j == n - 1 {
+                        continue;
+                    }
                     let delta = calculate_invert_delta(dist_matrix, &route, i, j);
-                    (delta, i, j)
-                })
-                .min_by_key(|(delta, _, _)| *delta);
+                    if best_move.is_none() || delta < best_move.unwrap().0 {
+                        best_move = Some((delta, i, j));
+                    }
+                }
+            }
 
             match best_move {
                 Some((best_delta, best_i, best_j)) if best_delta < 0 => {
