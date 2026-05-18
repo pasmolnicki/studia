@@ -259,20 +259,6 @@ impl TspProcedure for LocalSearchZ1 {
         while improved_flag {
             let n = route.len();
 
-            // let best_move = (0..(n - 1))
-            //     .into_par_iter()
-            //     .flat_map(|i| {
-            //         ((i + 1)..n)
-            //             .into_par_iter()
-            //             .map(move |j| (i, j))
-            //     })
-            //     .filter(|(i, j)| !(*i == 0 && *j == n - 1))
-            //     .map(|(i, j)| {
-            //         let delta = calculate_invert_delta(dist_matrix, &route, i, j);
-            //         (delta, i, j)
-            //     })
-            //     .min_by_key(|(delta, _, _)| *delta);
-
             let mut best_move: Option<(i64, usize, usize)> = None;
             for i in 0..(n - 1) {
                 for j in (i + 1)..n {
@@ -308,47 +294,12 @@ impl TspProcedure for LocalSearchZ1 {
     }
 
     fn run(&self, data: &tsp::Data, print: bool) -> TspAlgorithmResult {
-        self.run_multithreaded(data, print, data.points.points.len())        
-        // let dist_matrix = DistanceMatrix::new(&data.points.points);
-        // let n = data.points.points.len();
-
-        // let mut total_distance = 0i64;
-        // let mut total_steps = 0u64;
-        // let mut best_distance = i64::MAX;
-        // let mut best_solution = data.points.clone();
-
-        // if print {
-        //     println!("\x1b[1;36m[LocalSearchZ1] Starting optimization on {} vertices\x1b[0m", data.name);
-        // }
-
-        // for i in 0..n {
-        //     let result = self.algo(&data.points, &dist_matrix);
-        //     total_distance += result.distance;
-        //     total_steps += result.n_steps;
-
-        //     if result.distance < best_distance {
-        //         best_distance = result.distance;
-        //         best_solution = result.solution;
-        //     }
-
-        //     print_progress("Z1", print, n, best_distance, i);
-        // }
-
-        // if print {
-        //     println!("\n\x1b[1;32m[LocalSearchZ1] Complete\x1b[0m");
-        // }
-
-        // TspAlgorithmResult {
-        //     name: format!("LocalSearchZ1_{}", data.name),
-        //     mean_distance: total_distance / n as i64,
-        //     mean_n_steps: (total_steps / n as u64) as i64,
-        //     best_solution,
-        // }
+        self.run_multithreaded(data, print, 100)
     }
 }
 
 
-
+#[derive(Clone, Copy)]
 pub struct LocalSearchZ2;
 
 impl TspProcedure for LocalSearchZ2 {
@@ -409,39 +360,7 @@ impl TspProcedure for LocalSearchZ2 {
     }
 
     fn run(&self, data: &tsp::Data, print: bool) -> TspAlgorithmResult {
-        let dist_matrix = DistanceMatrix::new(&data.points.points);
-        let n = data.points.points.len();
-
-        let mut total_distance = 0i64;
-        let mut total_steps = 0u64;
-        let mut best_distance = i64::MAX;
-        let mut best_solution = data.points.clone();
-
-        print_starting("LocalSearchZ2", &data.name, print);
-
-        for i in 0..n {
-            let result = self.algo(&data.points, &dist_matrix);
-            total_distance += result.distance;
-            total_steps += result.n_steps;
-
-            if result.distance < best_distance {
-                best_distance = result.distance;
-                best_solution = result.solution;
-            }
-
-            print_progress("Z2", print, n, best_distance, i);
-        }
-
-        if print {
-            println!("\n\x1b[1;32m[LocalSearchZ2] Complete\x1b[0m");
-        }
-
-        TspAlgorithmResult {
-            name: format!("LocalSearchZ2_{}", data.name),
-            mean_distance: total_distance / n as i64,
-            mean_n_steps: (total_steps / n as u64) as i64,
-            best_solution,
-        }
+        self.run_multithreaded(data, print, 100)
     }
 }
 
@@ -501,40 +420,7 @@ impl TspProcedure for LocalSearchZ3 {
     }
 
     fn run(&self, data: &tsp::Data, print: bool) -> TspAlgorithmResult {
-        self.run_multithreaded(data, print, data.points.points.len())
-        // let dist_matrix = DistanceMatrix::new(&data.points.points);
-        // let n = data.points.points.len();
-
-        // let mut total_distance = 0i64;
-        // let mut total_steps = 0u64;
-        // let mut best_distance = i64::MAX;
-        // let mut best_solution = data.points.clone();
-
-        // print_starting("LocalSearchZ3", &data.name, print);
-
-        // for i in 0..n {
-        //     let result = self.algo(&data.points, &dist_matrix);
-        //     total_distance += result.distance;
-        //     total_steps += result.n_steps;
-
-        //     if result.distance < best_distance {
-        //         best_distance = result.distance;
-        //         best_solution = result.solution;
-        //     }
-
-        //     print_progress("Z3", print, n, best_distance, i);
-        // }
-
-        // if print {
-        //     println!("\n\x1b[1;32m[LocalSearchZ3] Complete\x1b[0m");
-        // }
-
-        // TspAlgorithmResult {
-        //     name: format!("LocalSearchZ3_{}", data.name),
-        //     mean_distance: total_distance / n as i64,
-        //     mean_n_steps: (total_steps / n as u64) as i64,
-        //     best_solution,
-        // }
+        self.run_multithreaded(data, print, 100)
     }
 }
 

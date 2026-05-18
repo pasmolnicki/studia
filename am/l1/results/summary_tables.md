@@ -2,36 +2,51 @@
 
 | File | Algorithm | Mean Distance | Mean Steps | Best Distance | Optimum Ratio |
 |---|---|---|---|---|---|
-| wi29.tsp | Z1 | 28371 | 24 | 27170 | 1.016 |
-| wi29.tsp | Z3 | 38374 | 21 | 28576 | 0.966 |
+| wi29.tsp | simulated_ann | 27730 | 4604 | 25636 | 1.077 |
+| wi29.tsp | tabu_search | 27282 | 29 | 24691 | 1.118 |
+| wi29.tsp | Z1 | 27324 | 24 | 25777 | 1.071 |
+| wi29.tsp | Z2 | 52615 | 15 | 38215 | 0.722 |
+| wi29.tsp | Z3 | 34339 | 24 | 28514 | 0.968 |
 
 ## Djibouti (dj38.tsp)
 
 | File | Algorithm | Mean Distance | Mean Steps | Best Distance | Optimum Ratio |
 |---|---|---|---|---|---|
-| dj38.tsp | Z1 | 6924 | 35 | 6427 | 1.036 |
-| dj38.tsp | Z3 | 9890 | 31 | 7412 | 0.898 |
+| dj38.tsp | simulated_ann | 6973 | 5359 | 6164 | 1.080 |
+| dj38.tsp | tabu_search | 6715 | 40 | 6160 | 1.081 |
+| dj38.tsp | Z1 | 6746 | 34 | 6314 | 1.054 |
+| dj38.tsp | Z2 | 14477 | 20 | 10671 | 0.624 |
+| dj38.tsp | Z3 | 9561 | 32 | 7735 | 0.861 |
 
 ## Qatar (qa194.tsp)
 
 | File | Algorithm | Mean Distance | Mean Steps | Best Distance | Optimum Ratio |
 |---|---|---|---|---|---|
-| qa194.tsp | Z1 | 10148 | 212 | 9631 | 0.971 |
-| qa194.tsp | Z3 | 21044 | 280 | 16915 | 0.553 |
+| qa194.tsp | simulated_ann | 13556 | 16522 | 11891 | 0.786 |
+| qa194.tsp | tabu_search | 24099 | 70 | 21725 | 0.430 |
+| qa194.tsp | Z1 | 10105 | 211 | 9460 | 0.989 |
+| qa194.tsp | Z2 | 21431 | 169 | 16987 | 0.551 |
+| qa194.tsp | Z3 | 20950 | 279 | 17251 | 0.542 |
 
 ## Uruguay (uy734.tsp)
 
 | File | Algorithm | Mean Distance | Mean Steps | Best Distance | Optimum Ratio |
 |---|---|---|---|---|---|
-| uy734.tsp | Z1 | 87019 | 923 | 84508 | 0.936 |
-| uy734.tsp | Z3 | 280901 | 1651 | 241750 | 0.327 |
+| uy734.tsp | simulated_ann | 247939 | 43931 | 229501 | 0.345 |
+| uy734.tsp | tabu_search | 1156744 | 70 | 1108631 | 0.071 |
+| uy734.tsp | Z1 | 86771 | 923 | 84301 | 0.938 |
+| uy734.tsp | Z2 | 229107 | 741 | 178710 | 0.443 |
+| uy734.tsp | Z3 | 281312 | 1647 | 237489 | 0.333 |
 
 ## Zimbabwe (zi929.tsp)
 
 | File | Algorithm | Mean Distance | Mean Steps | Best Distance | Optimum Ratio |
 |---|---|---|---|---|---|
-| zi929.tsp | Z1 | 104292 | 1174 | 100155 | 0.952 |
-| zi929.tsp | Z3 | 391930 | 2241 | 335665 | 0.284 |
+| zi929.tsp | simulated_ann | 331995 | 55244 | 299756 | 0.318 |
+| zi929.tsp | tabu_search | 1761150 | 70 | 1663223 | 0.057 |
+| zi929.tsp | Z1 | 104075 | 1175 | 99899 | 0.954 |
+| zi929.tsp | Z2 | 197929 | 1172 | 172025 | 0.554 |
+| zi929.tsp | Z3 | 392607 | 2233 | 337700 | 0.282 |
 
 ## Mauritania (mu1979.tsp)
 

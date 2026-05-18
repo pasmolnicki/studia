@@ -217,8 +217,10 @@ const LOCAL_SEARCH_Z3: &str = "Z3";
 #[allow(dead_code)]
 fn run_full_experiment() -> Result<(), Box<dyn Error>> {
     // These are the TSP problem instances to solve
-    let data_list = load_below_1k_data_sets();
-    
+    let data_list = 
+        // load_below_1k_data_sets();
+        load_lagrge_data_sets();
+
     for data in data_list.iter() {
         println!("Processing: {}", data.name);
         
