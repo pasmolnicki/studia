@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use l1::{algo::{self, LocalSearchZ1, LocalSearchZ2, LocalSearchZ3, SimulatedAnnealingBase, TabuSearchBase, TspAlgorithmResult}, tsp::{self, Data}};
 use algo::{TspProcedure};
-use std::{error::Error, path::PathBuf};
+use std::{error::Error, fs::File, io::Write, path::{self, PathBuf}};
 
 
 #[allow(dead_code)]
@@ -41,12 +41,13 @@ fn run_experiment(procedure: &dyn TspProcedure, data: &Data, procedure_name: &st
 
     save_to_csv(data, procedure_name, &result)?;
 
-    result.best_solution.visualize(Some(&format!("results/{}_{}", data.name, procedure_name)))
+    result.best_solution.visualize(
+        Some(&format!("results/plots/{}_{}", data.name, procedure_name)))
 }
 
 #[allow(dead_code)]
 fn save_to_csv(data: &Data, procedure_name: &str, result: &algo::TspAlgorithmResult) -> Result<(), Box<dyn Error + 'static>> {
-    let csv_path = format!("results/{}_{}.csv", data.name, procedure_name);
+    let csv_path = format!("results/{}/{}_{}.csv", procedure_name, data.name, procedure_name);
     let mut wtr = csv::Writer::from_path(&csv_path)?;
     wtr.write_record(&["mean_distance", "mean_n_steps", "best_distance"])?;
     wtr.write_record(&[result.mean_distance.to_string(), result.mean_n_steps.to_string(), result.best_solution.calc_distance().to_string()])?;
@@ -137,9 +138,9 @@ fn optimize_simulated_annealing_base() -> Result<(), Box<dyn Error>> {
 #[allow(dead_code)]
 fn optimize_tabu_search() -> Result<(), Box<dyn Error>> {
     let data = load_below_1k_data_sets();
-    let tabu_tenures = [5, 10, 15, 20, 30];
-    let max_iterations = [5, 10, 20, 30, 50];
-    let no_improve_limits = [5, 10, 15, 20, 30];
+    let tabu_tenures = [5, 15, 30, 0];
+    let max_iterations = [5, 20, 50, 70];
+    let no_improve_limits = [5, 15, 30];
     let csv_path = format!("results/ts_parameter_tuning.csv");
     let mut wtr = csv::Writer::from_path(&csv_path)?;
     wtr.write_record(&["tabu_tenure", "max_iterations", "no_improve_limit", "avg_distance"])?;
@@ -158,7 +159,7 @@ fn optimize_tabu_search() -> Result<(), Box<dyn Error>> {
                 let ts = TabuSearchBase::new(tenure, max_iter, no_improve);
                 let mut total_distance = 0.0;
                 for d in data.iter() {
-                    let res = ts.run(d, true);
+                    let res = ts.run(d, false);
                     total_distance += res.mean_distance as f64;
                 }
                 let avg_distance = total_distance / (data.len() as f64);
@@ -170,8 +171,8 @@ fn optimize_tabu_search() -> Result<(), Box<dyn Error>> {
                         max_iterations: max_iter,
                         no_improve_limit: no_improve,
                     };
-                    wtr.write_record(&[tenure.to_string(), max_iter.to_string(), no_improve.to_string(), avg_distance.to_string()])?;
                 }
+                wtr.write_record(&[tenure.to_string(), max_iter.to_string(), no_improve.to_string(), avg_distance.to_string()])?;
             }
         }
     }
@@ -206,19 +207,26 @@ fn run_reapted_experiment(algo: &dyn TspProcedure, n: i32, algo_name: &str) -> R
     Ok(())
 }
 
+const SIMULATED_ANNEALING: &str = "simulated_ann";
+const TABU_SEARCH: &str = "tabu_search";
+const LOCAL_SEARCH_Z1: &str = "Z1";
+const LOCAL_SEARCH_Z2: &str = "Z2";
+const LOCAL_SEARCH_Z3: &str = "Z3";
+
 /// Example of running all three algorithms on TSP datasets
 #[allow(dead_code)]
 fn run_full_experiment() -> Result<(), Box<dyn Error>> {
     // These are the TSP problem instances to solve
-    let data_list = load_lagrge_data_sets();
+    let data_list = load_below_1k_data_sets();
     
     for data in data_list.iter() {
         println!("Processing: {}", data.name);
         
-        // run_experiment(&LocalSearchZ1, data, "Z1")?;
-        // run_experiment(&LocalSearchZ2, data, "Z2")?;
-        // run_experiment(&LocalSearchZ3, data, "Z3")?;
-        run_experiment(&SimulatedAnnealingBase::default(), data, "simulated_ann")?;
+        run_experiment(&LocalSearchZ1, data, LOCAL_SEARCH_Z1)?;
+        run_experiment(&LocalSearchZ2, data, LOCAL_SEARCH_Z2)?;
+        run_experiment(&LocalSearchZ3, data, LOCAL_SEARCH_Z3)?;
+        run_experiment(&SimulatedAnnealingBase::default(), data, SIMULATED_ANNEALING)?;
+        run_experiment(&TabuSearchBase::default(), data, TABU_SEARCH)?;
         
         println!();
     }
@@ -226,14 +234,68 @@ fn run_full_experiment() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+fn generate_md_tables() {
+    // "mu1979.tsp", "ca4663.tsp" 1,290,319, ("tz6117.tsp", 95345), ("eg7146.tsp", 172387), "ei8246.tsp" 206,171
+    let optimal_tours = [
+        ("wi29.tsp", 27603, "Western Sahara"),
+        ("dj38.tsp", 6656, "Djibouti"),
+        ("qa194.tsp", 9352, "Qatar"),
+        ("uy734.tsp", 79114, "Uruguay"),
+        ("zi929.tsp", 95_345, "Zimbabwe"),
+        ("mu1979.tsp", 86_891, "Mauritania"),
+        ("ca4663.tsp", 1_290_319, "Canada"),
+        ("tz6117.tsp", 95_345, "Tanzania"),
+        ("eg7146.tsp", 172_387, "Egypt"),
+        ("ei8246.tsp", 206_171, "Ireland"),
+    ];
+
+    let path = path::absolute(PathBuf::from("./results/")).unwrap();
+    let output_path = path.join("summary_tables.md");
+    let mut md_file = File::create(&output_path).expect("Could not create summary_tables.md");
+    let header = "| File | Algorithm | Mean Distance | Mean Steps | Best Distance | Optimum Ratio |\n|---|---|---|---|---|---|\n";
+
+    for (file, optimum, name) in optimal_tours {
+        md_file.write_all(format!("## {name} ({file})\n\n").as_bytes()).expect("Could not write to summary_tables.md");
+        md_file.write_all(header.as_bytes()).expect("Could not write to summary_tables.md");
+
+        print!("## {name} ({file})\n");
+        print!("{}", header);
+
+        for algo_name in [SIMULATED_ANNEALING, TABU_SEARCH, LOCAL_SEARCH_Z1, LOCAL_SEARCH_Z2, LOCAL_SEARCH_Z3].iter() {
+            let csv_path = path.join(algo_name).join(format!("{}_{}.csv", file.split('.').next().unwrap(), algo_name));
+            if let Ok(mut rdr) = csv::Reader::from_path(&csv_path) {
+                if let Some(Ok(record)) = rdr.records().next() {
+                    let mean_distance: i32 = record.get(0).unwrap_or("0").parse().unwrap_or(0);
+                    let mean_n_steps: i32 = record.get(1).unwrap_or("0").parse().unwrap_or(0);
+                    let best_distance: i32 = record.get(2).unwrap_or("0").parse().unwrap_or(0);
+
+                    md_file.write_all(format!("| {} | {} | {} | {} | {} | {:.3} |\n", 
+                        file, algo_name, mean_distance, mean_n_steps, best_distance, 
+                        optimum as f64 / best_distance as f64).as_bytes()).expect("Could not write to summary_tables.md");
+                    print!("| {} | {} | {} | {} | {} | {:.3} |\n", 
+                        file, algo_name, mean_distance, mean_n_steps, best_distance, optimum as f64 / best_distance as f64);
+                }
+            } 
+            // else {
+                // println!("Could not read results for {} with {}. Expected at: {}", file, algo_name, csv_path.display());
+            // }
+        }
+
+        md_file.write_all(b"\n").expect("Could not write to summary_tables.md");
+        println!();
+    }
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
-    // run_full_experiment()?;
+    run_full_experiment()?;
     // optimize_simulated_annealing_base()?;
     // optimize_tabu_search()?;
     // run_reapted_experiment(&SimulatedAnnealingBase::default(), 100, "simulated_ann")?;
 
     // let data = &tsp::load_data(&["wi29.tsp"])[0];
-    // run_experiment(&SimulatedAnnealingBase::default(), data, "test_sim_ann")?;
+    // run_experiment(&TabuSearchBase::default(), data, "test_sim_ann")?;
+
+    generate_md_tables();
 
     Ok(())
 }

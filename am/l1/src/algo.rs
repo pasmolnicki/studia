@@ -162,7 +162,7 @@ fn print_progress(tag: &str, print: bool, n: usize, best_distance: i64, i: usize
         let bar_width = 30;
         let filled = (progress as usize * bar_width / 100).min(bar_width);
         let bar = format!("[{}{}]", "=".repeat(filled), " ".repeat(bar_width - filled));
-        print!("\rx1b[1;34m[{}]\x1b[0m {} {}/{} ({}%) | Best: {}", tag, bar, i + 1, n, progress, best_distance);
+        print!("\r\x1b[1;34m[{}]\x1b[0m {} {}/{} ({}%) | Best: {}", tag, bar, i + 1, n, progress, best_distance);
         std::io::Write::flush(&mut std::io::stdout()).ok();
     }
 }
@@ -181,12 +181,10 @@ pub trait TspProcedure {
 
     fn run_multithreaded(&self, data: &tsp::Data, print: bool, n_jobs: usize) -> TspAlgorithmResult 
         where Self: Clone + Send + Sync + 'static 
-    {
-                let dist_matrix = DistanceMatrix::new(&data.points.points);
-        let n = data.points.points.len();
-
+    {        
         print_starting(self.name(), &data.name, print);
 
+        let dist_matrix = DistanceMatrix::new(&data.points.points);
         let points = Arc::new(data.points.clone());
         let dist_matrix = Arc::new(dist_matrix.clone());
         let shared = Arc::new(Mutex::new(
@@ -235,13 +233,14 @@ pub trait TspProcedure {
 
         TspAlgorithmResult {
             name: format!("{}_{}", self.name(), data.name),
-            mean_distance: shared.total_distance / n as i64,
-            mean_n_steps: (shared.total_steps / n as u64) as i64,
+            mean_distance: shared.total_distance / n_jobs as i64,
+            mean_n_steps: (shared.total_steps / n_jobs as u64) as i64,
             best_solution: shared.best_solution.clone(),
         }
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct LocalSearchZ1;
 
 impl TspProcedure for LocalSearchZ1 {
@@ -254,7 +253,6 @@ impl TspProcedure for LocalSearchZ1 {
         let mut rng = rand::rng();
         route.shuffle(&mut rng);
 
-        let mut len = dist_matrix.calculate_tour_length(&route);
         let mut steps = 0u64;
 
         let improved_flag = true;
@@ -291,7 +289,6 @@ impl TspProcedure for LocalSearchZ1 {
             match best_move {
                 Some((best_delta, best_i, best_j)) if best_delta < 0 => {
                     apply_invert(&mut route, best_i, best_j);
-                    len += best_delta;
                     steps += 1;
                 }
                 _ => break,
@@ -304,48 +301,49 @@ impl TspProcedure for LocalSearchZ1 {
         };
 
         AlgoSearchResult {
-            distance: len,
+            distance: solution.calc_distance() as i64,
             n_steps: steps,
             solution,
         }
     }
 
     fn run(&self, data: &tsp::Data, print: bool) -> TspAlgorithmResult {
-        let dist_matrix = DistanceMatrix::new(&data.points.points);
-        let n = data.points.points.len();
+        self.run_multithreaded(data, print, data.points.points.len())        
+        // let dist_matrix = DistanceMatrix::new(&data.points.points);
+        // let n = data.points.points.len();
 
-        let mut total_distance = 0i64;
-        let mut total_steps = 0u64;
-        let mut best_distance = i64::MAX;
-        let mut best_solution = data.points.clone();
+        // let mut total_distance = 0i64;
+        // let mut total_steps = 0u64;
+        // let mut best_distance = i64::MAX;
+        // let mut best_solution = data.points.clone();
 
-        if print {
-            println!("\x1b[1;36m[LocalSearchZ1] Starting optimization on {} vertices\x1b[0m", data.name);
-        }
+        // if print {
+        //     println!("\x1b[1;36m[LocalSearchZ1] Starting optimization on {} vertices\x1b[0m", data.name);
+        // }
 
-        for i in 0..n {
-            let result = self.algo(&data.points, &dist_matrix);
-            total_distance += result.distance;
-            total_steps += result.n_steps;
+        // for i in 0..n {
+        //     let result = self.algo(&data.points, &dist_matrix);
+        //     total_distance += result.distance;
+        //     total_steps += result.n_steps;
 
-            if result.distance < best_distance {
-                best_distance = result.distance;
-                best_solution = result.solution;
-            }
+        //     if result.distance < best_distance {
+        //         best_distance = result.distance;
+        //         best_solution = result.solution;
+        //     }
 
-            print_progress("Z1", print, n, best_distance, i);
-        }
+        //     print_progress("Z1", print, n, best_distance, i);
+        // }
 
-        if print {
-            println!("\n\x1b[1;32m[LocalSearchZ1] Complete\x1b[0m");
-        }
+        // if print {
+        //     println!("\n\x1b[1;32m[LocalSearchZ1] Complete\x1b[0m");
+        // }
 
-        TspAlgorithmResult {
-            name: format!("LocalSearchZ1_{}", data.name),
-            mean_distance: total_distance / n as i64,
-            mean_n_steps: (total_steps / n as u64) as i64,
-            best_solution,
-        }
+        // TspAlgorithmResult {
+        //     name: format!("LocalSearchZ1_{}", data.name),
+        //     mean_distance: total_distance / n as i64,
+        //     mean_n_steps: (total_steps / n as u64) as i64,
+        //     best_solution,
+        // }
     }
 }
 
@@ -363,7 +361,6 @@ impl TspProcedure for LocalSearchZ2 {
         let mut rng = rand::rng();
         route.shuffle(&mut rng);
 
-        let mut len = dist_matrix.calculate_tour_length(&route);
         let mut steps = 0u64;
 
         let improved_flag = true;
@@ -393,7 +390,6 @@ impl TspProcedure for LocalSearchZ2 {
 
             if found_improvement && best_delta < 0 {
                 apply_invert(&mut route, best_i, best_j);
-                len += best_delta;
                 steps += 1;
             } else {
                 break;
@@ -406,7 +402,7 @@ impl TspProcedure for LocalSearchZ2 {
         };
 
         AlgoSearchResult {
-            distance: len,
+            distance: solution.calc_distance() as i64,
             n_steps: steps,
             solution,
         }
@@ -449,6 +445,7 @@ impl TspProcedure for LocalSearchZ2 {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct LocalSearchZ3;
 
 impl TspProcedure for LocalSearchZ3 {
@@ -461,7 +458,6 @@ impl TspProcedure for LocalSearchZ3 {
         let mut rng = rand::rng();
         route.shuffle(&mut rng);
 
-        let mut len = dist_matrix.calculate_tour_length(&route);
         let mut steps = 0u64;
 
         let improved_flag = true;
@@ -486,7 +482,6 @@ impl TspProcedure for LocalSearchZ3 {
 
             if found_improvement && best_delta < 0 {
                 apply_transpose(&mut route, best_i, best_j);
-                len += best_delta;
                 steps += 1;
             } else {
                 break;
@@ -499,46 +494,47 @@ impl TspProcedure for LocalSearchZ3 {
         };
 
         AlgoSearchResult {
-            distance: len,
+            distance: solution.calc_distance() as i64,
             n_steps: steps,
             solution,
         }
     }
 
     fn run(&self, data: &tsp::Data, print: bool) -> TspAlgorithmResult {
-        let dist_matrix = DistanceMatrix::new(&data.points.points);
-        let n = data.points.points.len();
+        self.run_multithreaded(data, print, data.points.points.len())
+        // let dist_matrix = DistanceMatrix::new(&data.points.points);
+        // let n = data.points.points.len();
 
-        let mut total_distance = 0i64;
-        let mut total_steps = 0u64;
-        let mut best_distance = i64::MAX;
-        let mut best_solution = data.points.clone();
+        // let mut total_distance = 0i64;
+        // let mut total_steps = 0u64;
+        // let mut best_distance = i64::MAX;
+        // let mut best_solution = data.points.clone();
 
-        print_starting("LocalSearchZ3", &data.name, print);
+        // print_starting("LocalSearchZ3", &data.name, print);
 
-        for i in 0..n {
-            let result = self.algo(&data.points, &dist_matrix);
-            total_distance += result.distance;
-            total_steps += result.n_steps;
+        // for i in 0..n {
+        //     let result = self.algo(&data.points, &dist_matrix);
+        //     total_distance += result.distance;
+        //     total_steps += result.n_steps;
 
-            if result.distance < best_distance {
-                best_distance = result.distance;
-                best_solution = result.solution;
-            }
+        //     if result.distance < best_distance {
+        //         best_distance = result.distance;
+        //         best_solution = result.solution;
+        //     }
 
-            print_progress("Z3", print, n, best_distance, i);
-        }
+        //     print_progress("Z3", print, n, best_distance, i);
+        // }
 
-        if print {
-            println!("\n\x1b[1;32m[LocalSearchZ3] Complete\x1b[0m");
-        }
+        // if print {
+        //     println!("\n\x1b[1;32m[LocalSearchZ3] Complete\x1b[0m");
+        // }
 
-        TspAlgorithmResult {
-            name: format!("LocalSearchZ3_{}", data.name),
-            mean_distance: total_distance / n as i64,
-            mean_n_steps: (total_steps / n as u64) as i64,
-            best_solution,
-        }
+        // TspAlgorithmResult {
+        //     name: format!("LocalSearchZ3_{}", data.name),
+        //     mean_distance: total_distance / n as i64,
+        //     mean_n_steps: (total_steps / n as u64) as i64,
+        //     best_solution,
+        // }
     }
 }
 
@@ -667,7 +663,7 @@ impl TspProcedure for SimulatedAnnealingBase {
         };
 
         AlgoSearchResult {
-            distance: best_tour_len,
+            distance: solution.calc_distance() as i64,
             n_steps: steps as u64,
             solution,
         }
@@ -679,6 +675,7 @@ impl TspProcedure for SimulatedAnnealingBase {
 }
 
 
+#[derive(Clone, Copy)]
 pub struct TabuSearchParams {
     pub tabu_tenure: usize,
     pub max_iterations: usize,
@@ -688,14 +685,15 @@ pub struct TabuSearchParams {
 impl Default for TabuSearchParams {
     fn default() -> Self {
         Self {
-            tabu_tenure: 0, // Will be set to n/2 in algo
-            max_iterations: 500,
-            no_improve_limit: 100,
+            tabu_tenure: 15, // Will be set to n/2 in algo
+            max_iterations: 70,
+            no_improve_limit: 5,
         }
     }
 }
 
 // Tabu Search - search with memory of recent moves
+#[derive(Clone)]
 pub struct TabuSearchBase {
     pub params: TabuSearchParams,
 }
@@ -808,43 +806,13 @@ impl TspProcedure for TabuSearchBase {
         };
 
         AlgoSearchResult {
-            distance: best_len,
+            distance: solution.calc_distance() as i64,
             n_steps: steps,
             solution,
         }
     }
 
     fn run(&self, data: &tsp::Data, print: bool) -> TspAlgorithmResult {
-        let dist_matrix = DistanceMatrix::new(&data.points.points);
-        let n = data.points.points.len();
-
-        let mut total_distance = 0i64;
-        let mut total_steps = 0u64;
-        let mut best_distance = i64::MAX;
-        let mut best_solution = data.points.clone();
-
-        print_starting("TabuSearch", &data.name, print);
-
-        for i in 0..n {
-            let result = self.algo(&data.points, &dist_matrix);
-            total_distance += result.distance;
-            total_steps += result.n_steps;
-
-            if result.distance < best_distance {
-                best_distance = result.distance;
-                best_solution = result.solution;
-            }
-
-            print_progress("TSP", print, n, best_distance, i);
-        }
-
-        print_complete("TabuSearch", print);
-
-        TspAlgorithmResult {
-            name: format!("TabuSearch_{}", data.name),
-            mean_distance: total_distance / n as i64,
-            mean_n_steps: (total_steps / n as u64) as i64,
-            best_solution,
-        }
+        self.run_multithreaded(data, print, 100)
     }
 }

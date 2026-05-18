@@ -145,14 +145,13 @@ impl VecPoints {
 }
 
 
-const REL_PATH: &str = "./data/";
+const DATA_PATH: &str = "./data/";
 const OUTPUT_PATH: &str = "./results/";
 
 fn load_files(file_names: &[&str]) -> Vec<String> {
     
     let mut files = Vec::new();
-    let rel_path = PathBuf::from(REL_PATH);
-    let base_path = path::absolute(rel_path).unwrap();
+    let base_path = path::absolute(PathBuf::from(DATA_PATH)).unwrap();
 
     for file in file_names.iter() {
         let file_path = base_path.join(*file);
