@@ -1,3 +1,4 @@
+#[allow(unused_imports)]
 use l1::{algo::{self, LocalSearchZ1, LocalSearchZ2, LocalSearchZ3, SimulatedAnnealingBase, TabuSearchBase, TspAlgorithmResult}, tsp::{self, Data}};
 use algo::{TspProcedure};
 use std::{error::Error, path::PathBuf};
@@ -209,14 +210,15 @@ fn run_reapted_experiment(algo: &dyn TspProcedure, n: i32, algo_name: &str) -> R
 #[allow(dead_code)]
 fn run_full_experiment() -> Result<(), Box<dyn Error>> {
     // These are the TSP problem instances to solve
-    let data_list = load_below_1k_data_sets();
+    let data_list = load_lagrge_data_sets();
     
     for data in data_list.iter() {
         println!("Processing: {}", data.name);
         
-        run_experiment(&LocalSearchZ1, data, "Z1")?;
+        // run_experiment(&LocalSearchZ1, data, "Z1")?;
         // run_experiment(&LocalSearchZ2, data, "Z2")?;
         // run_experiment(&LocalSearchZ3, data, "Z3")?;
+        run_experiment(&SimulatedAnnealingBase::default(), data, "simulated_ann")?;
         
         println!();
     }
@@ -225,10 +227,13 @@ fn run_full_experiment() -> Result<(), Box<dyn Error>> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    run_full_experiment()?;
+    // run_full_experiment()?;
     // optimize_simulated_annealing_base()?;
     // optimize_tabu_search()?;
     // run_reapted_experiment(&SimulatedAnnealingBase::default(), 100, "simulated_ann")?;
+
+    // let data = &tsp::load_data(&["wi29.tsp"])[0];
+    // run_experiment(&SimulatedAnnealingBase::default(), data, "test_sim_ann")?;
 
     Ok(())
 }

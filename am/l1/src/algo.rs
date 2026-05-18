@@ -1,12 +1,14 @@
 use crate::tsp::{self, VecPoints, point_distance};
 use rand::{Rng, RngExt};
 use rand::seq::SliceRandom;
-use rayon::prelude::*;
 use serde::{Serialize};
 use std::fs::File;
 use std::io::Write;
 use std::path::{PathBuf};
+use std::sync::{Arc, Mutex};
 use std::{path};
+use threadpool::ThreadPool;
+use std::sync::mpsc::channel;
 
 #[derive(Debug, Serialize)]
 pub struct TspAlgorithmResult {
@@ -55,6 +57,7 @@ pub fn save_to_file<T: NamedObject + serde::Serialize>(result: T, file_name: &st
 }
 
 // Distance matrix builder - pre-computes distances between all pairs of points
+#[derive(Clone)]
 pub struct DistanceMatrix {
     matrix: Vec<Vec<i64>>,
 }
@@ -147,21 +150,105 @@ fn calculate_transpose_delta(dist_matrix: &DistanceMatrix, route: &[usize], i: u
     }
 }
 
-/*
-Zadanie 1. Wykonaj algorytm Local Search dla n losowych permutacji (n to liczba wierzchołków).
-Dla każdych danych podaj średnią wartość uzyskanego rozwiązania, 
-średnią liczbę kroków poprawy oraz najlepsze uzyskane rozwiązanie.
-*/
+fn print_starting(algo_name: &str, data_set: &str, print: bool) {
+    if print {
+        println!("\x1b[1;36m[{}] Starting optimization on {} vertices\x1b[0m", algo_name, data_set);
+    }
+}
+
+fn print_progress(tag: &str, print: bool, n: usize, best_distance: i64, i: usize) {
+    if print && (i % 10 == 0 || i == n - 1) {
+        let progress = ((i + 1) as f64 / n as f64 * 100.0) as u32;
+        let bar_width = 30;
+        let filled = (progress as usize * bar_width / 100).min(bar_width);
+        let bar = format!("[{}{}]", "=".repeat(filled), " ".repeat(bar_width - filled));
+        print!("\rx1b[1;34m[{}]\x1b[0m {} {}/{} ({}%) | Best: {}", tag, bar, i + 1, n, progress, best_distance);
+        std::io::Write::flush(&mut std::io::stdout()).ok();
+    }
+}
+
+fn print_complete(algo_name: &str, print: bool) {
+    if print {
+        println!("\n\x1b[1;32m[{algo_name}] Complete\x1b[0m");
+    }
+}
 
 pub trait TspProcedure {
     fn algo(&self, points: &tsp::VecPoints, dist_matrix: &DistanceMatrix) -> AlgoSearchResult;
 
     fn run(&self, data: &tsp::Data, print: bool) -> TspAlgorithmResult;
+    fn name(&self) -> &str;
+
+    fn run_multithreaded(&self, data: &tsp::Data, print: bool, n_jobs: usize) -> TspAlgorithmResult 
+        where Self: Clone + Send + Sync + 'static 
+    {
+                let dist_matrix = DistanceMatrix::new(&data.points.points);
+        let n = data.points.points.len();
+
+        print_starting(self.name(), &data.name, print);
+
+        let points = Arc::new(data.points.clone());
+        let dist_matrix = Arc::new(dist_matrix.clone());
+        let shared = Arc::new(Mutex::new(
+            SharedProcedureState {
+                total_distance: 0,
+                total_steps: 0,
+                best_distance: i64::MAX,
+                best_solution: data.points.clone(),
+            }
+        ));
+
+        let pool = ThreadPool::new(16);
+        let (tx, rx) = channel();
+        let algo = Arc::new(self.clone());
+
+        for _i in 0..n_jobs {
+            let tx = tx.clone();
+            let points = points.clone();
+            let dist_matrix = dist_matrix.clone();
+            let algo = algo.clone();
+            let shared = shared.clone();
+
+            pool.execute(move ||{
+                let result = algo.algo(&points, &dist_matrix);
+                let mut shared = shared.lock().unwrap();
+                shared.total_distance += result.distance;
+                shared.total_steps += result.n_steps;
+
+                if result.distance < shared.best_distance {
+                    shared.best_distance = result.distance;
+                    shared.best_solution = result.solution;
+                }
+
+                tx.send(1).expect("Couldn't send on tx");
+            });
+        }
+
+        for i in 0..n_jobs {
+            rx.recv().expect(&format!("Didn't receive value at {i}"));
+            print_progress(self.name(), print, n_jobs, shared.lock().unwrap().best_distance, i);
+        }
+
+        print_complete(self.name(), print);
+
+        let shared = shared.lock().unwrap();
+
+        TspAlgorithmResult {
+            name: format!("{}_{}", self.name(), data.name),
+            mean_distance: shared.total_distance / n as i64,
+            mean_n_steps: (shared.total_steps / n as u64) as i64,
+            best_solution: shared.best_solution.clone(),
+        }
+    }
 }
 
 pub struct LocalSearchZ1;
 
 impl TspProcedure for LocalSearchZ1 {
+    fn name(&self) -> &str {
+        "LocalSearchZ1"
+    }
+
     fn algo(&self, points: &VecPoints, dist_matrix: &DistanceMatrix) -> AlgoSearchResult {
         let mut route: Vec<usize> = (0..points.points.len()).collect();
         let mut rng = rand::rng();
@@ -246,14 +333,7 @@ impl TspProcedure for LocalSearchZ1 {
                 best_solution = result.solution;
             }
 
-            if print && (i % 10 == 0 || i == n - 1) {
-                let progress = ((i + 1) as f64 / n as f64 * 100.0) as u32;
-                let bar_width = 30;
-                let filled = (progress as usize * bar_width / 100).min(bar_width);
-                let bar = format!("[{}{}]", "=".repeat(filled), " ".repeat(bar_width - filled));
-                print!("\r\x1b[1;33m[Z1]\x1b[0m {} {}/{} ({}%) | Best: {}", bar, i + 1, n, progress, best_distance);
-                std::io::Write::flush(&mut std::io::stdout()).ok();
-            }
+            print_progress("Z1", print, n, best_distance, i);
         }
 
         if print {
@@ -269,9 +349,15 @@ impl TspProcedure for LocalSearchZ1 {
     }
 }
 
+
+
 pub struct LocalSearchZ2;
 
 impl TspProcedure for LocalSearchZ2 {
+    fn name(&self) -> &str {
+        "LocalSearchZ2"
+    }
+
     fn algo(&self, points: &VecPoints, dist_matrix: &DistanceMatrix) -> AlgoSearchResult {
         let mut route: Vec<usize> = (0..points.points.len()).collect();
         let mut rng = rand::rng();
@@ -335,9 +421,7 @@ impl TspProcedure for LocalSearchZ2 {
         let mut best_distance = i64::MAX;
         let mut best_solution = data.points.clone();
 
-        if print {
-            println!("\x1b[1;36m[LocalSearchZ2] Starting optimization on {} vertices\x1b[0m", data.name);
-        }
+        print_starting("LocalSearchZ2", &data.name, print);
 
         for i in 0..n {
             let result = self.algo(&data.points, &dist_matrix);
@@ -349,14 +433,7 @@ impl TspProcedure for LocalSearchZ2 {
                 best_solution = result.solution;
             }
 
-            if print && (i % 10 == 0 || i == n - 1) {
-                let progress = ((i + 1) as f64 / n as f64 * 100.0) as u32;
-                let bar_width = 30;
-                let filled = (progress as usize * bar_width / 100).min(bar_width);
-                let bar = format!("[{}{}]", "=".repeat(filled), " ".repeat(bar_width - filled));
-                print!("\r\x1b[1;35m[Z2]\x1b[0m {} {}/{} ({}%) | Best: {}", bar, i + 1, n, progress, best_distance);
-                std::io::Write::flush(&mut std::io::stdout()).ok();
-            }
+            print_progress("Z2", print, n, best_distance, i);
         }
 
         if print {
@@ -375,6 +452,10 @@ impl TspProcedure for LocalSearchZ2 {
 pub struct LocalSearchZ3;
 
 impl TspProcedure for LocalSearchZ3 {
+    fn name(&self) -> &str {
+        "LocalSearchZ3"
+    }
+
     fn algo(&self, points: &VecPoints, dist_matrix: &DistanceMatrix) -> AlgoSearchResult {
         let mut route: Vec<usize> = (0..points.points.len()).collect();
         let mut rng = rand::rng();
@@ -433,9 +514,7 @@ impl TspProcedure for LocalSearchZ3 {
         let mut best_distance = i64::MAX;
         let mut best_solution = data.points.clone();
 
-        if print {
-            println!("\x1b[1;36m[LocalSearchZ3] Starting optimization on {} vertices\x1b[0m", data.name);
-        }
+        print_starting("LocalSearchZ3", &data.name, print);
 
         for i in 0..n {
             let result = self.algo(&data.points, &dist_matrix);
@@ -447,14 +526,7 @@ impl TspProcedure for LocalSearchZ3 {
                 best_solution = result.solution;
             }
 
-            if print && (i % 10 == 0 || i == n - 1) {
-                let progress = ((i + 1) as f64 / n as f64 * 100.0) as u32;
-                let bar_width = 30;
-                let filled = (progress as usize * bar_width / 100).min(bar_width);
-                let bar = format!("[{}{}]", "=".repeat(filled), " ".repeat(bar_width - filled));
-                print!("\r\x1b[1;36m[Z3]\x1b[0m {} {}/{} ({}%) | Best: {}", bar, i + 1, n, progress, best_distance);
-                std::io::Write::flush(&mut std::io::stdout()).ok();
-            }
+            print_progress("Z3", print, n, best_distance, i);
         }
 
         if print {
@@ -470,25 +542,35 @@ impl TspProcedure for LocalSearchZ3 {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct SimulatedAnnealingParams {
     pub initial_temperature: f64,
     pub cooling_factor: f64,
     pub epoch_length: usize,
-    pub no_improve_limit: u64,
+    pub no_improve_limit: u32,
 }
 
 impl Default for SimulatedAnnealingParams {
     fn default() -> Self {
         Self {
             initial_temperature: 20.0,
-            cooling_factor: 0.95,
+            cooling_factor: 0.9,
             epoch_length: 100,
-            no_improve_limit: 5,
+            no_improve_limit: 30,
         }
     }
 }
 
+#[derive(Clone)]
+struct SharedProcedureState {
+    total_distance: i64,
+    total_steps: u64,
+    best_distance: i64,
+    best_solution: tsp::VecPoints,
+}
+
 // Simulated Annealing - metaheuristic that accepts worse solutions with decreasing probability
+#[derive(Clone)]
 pub struct SimulatedAnnealingBase {
     pub params: SimulatedAnnealingParams,
 }
@@ -502,7 +584,7 @@ impl Default for SimulatedAnnealingBase {
 }
 
 impl SimulatedAnnealingBase {
-    pub fn new(initial_temperature: f64, cooling_factor: f64, epoch: usize, no_improve_limit: u64) -> Self {
+    pub fn new(initial_temperature: f64, cooling_factor: f64, epoch: usize, no_improve_limit: u32) -> Self {
         Self {
             params: SimulatedAnnealingParams {
                 initial_temperature,
@@ -512,53 +594,70 @@ impl SimulatedAnnealingBase {
             }
         }
     }
+
+    pub fn random_inversion(rng: &mut dyn  Rng,  n: usize) -> (usize, usize) {
+        let i = rng.random_range(0..n - 1);
+        (i, rng.random_range(i + 1..n))
+    }
 }
 
 impl TspProcedure for SimulatedAnnealingBase {
+    fn name(&self) -> &str {
+        "SimulatedAnnealing"
+    }
+
     fn algo(&self, points: &VecPoints, dist_matrix: &DistanceMatrix) -> AlgoSearchResult {
         let mut route: Vec<usize> = (0..points.points.len()).collect();
         let mut rng = rand::rng();
         route.shuffle(&mut rng);
 
-        let mut len = dist_matrix.calculate_tour_length(&route);
-        let mut best_len = len;
+        const MAX_EXPONENT: f64 = 10.0;
+
+        let mut tour_len = dist_matrix.calculate_tour_length(&route);
+        let mut best_tour_len = tour_len;
+        let mut steps = 0usize;
         let mut best_route = route.clone();
-        let mut steps = 0u64;
         let mut temperature = self.params.initial_temperature;
+        let no_improve_limit = self.params.no_improve_limit;
+        let mut no_improvement_count = 0u32;
 
-        for iteration in 0..1000 {
-            // Randomly select a neighbor (invert move)
-            let n = route.len();
-            if n < 2 { break; }
-            let i = rng.random_range(0..n - 1);
-            let j = rng.random_range(i + 1..n);
+        loop {
+            let mut improved = false;
+            for _epoch in 0..self.params.epoch_length {
+                let (i, j) = 
+                    SimulatedAnnealingBase::random_inversion(&mut rng, route.len());
+                let delta = calculate_invert_delta(dist_matrix, &route, i, j);
 
-            let delta = calculate_invert_delta(dist_matrix, &route, i, j);
+                let accept = if delta < 0 { 
+                    true 
+                } else {
+                    let boltzman = (-delta as f64 / temperature.max(0.01))
+                        .min(MAX_EXPONENT).exp();
+                    rng.random::<f64>() < boltzman
+                };
 
-            // Acceptance criterion: always accept if better
-            let accept = if delta < 0 {
-                true
-            } else {
-                // Accept worse move with probability based on temperature
-                let temperature_safe = temperature.max(0.01);
-                let prob = (-(delta as f64) / temperature_safe).min(10.0).exp();
-                rng.random::<f64>() < prob
-            };
+                if accept {
+                    apply_invert(&mut route, i, j);
+                    tour_len += delta;
 
-            if accept {
-                apply_invert(&mut route, i, j);
-                len = len + delta;
-                steps += 1;
-
-                if len < best_len {
-                    best_len = len;
-                    best_route = route.clone();
+                    if tour_len < best_tour_len {
+                        improved = true;
+                        best_tour_len = tour_len;
+                        best_route = route.clone();
+                    }
                 }
             }
 
-            // Cooling schedule
-            if iteration % 10 == 0 {
-                temperature *= self.params.cooling_factor;
+            // Cool off
+            temperature *= self.params.cooling_factor;
+
+            if !improved {
+                no_improvement_count += 1;
+            }
+
+            steps += self.params.epoch_length;
+            if no_improvement_count >= no_improve_limit {
+                break;
             }
         }
 
@@ -568,55 +667,14 @@ impl TspProcedure for SimulatedAnnealingBase {
         };
 
         AlgoSearchResult {
-            distance: best_len,
-            n_steps: steps,
+            distance: best_tour_len,
+            n_steps: steps as u64,
             solution,
         }
     }
 
     fn run(&self, data: &tsp::Data, print: bool) -> TspAlgorithmResult {
-        let dist_matrix = DistanceMatrix::new(&data.points.points);
-        let n = data.points.points.len();
-
-        let mut total_distance = 0i64;
-        let mut total_steps = 0u64;
-        let mut best_distance = i64::MAX;
-        let mut best_solution = data.points.clone();
-
-        if print {
-            println!("\x1b[1;36m[SimulatedAnnealing] Starting optimization on {} vertices\x1b[0m", data.name);
-        }
-
-        for i in 0..n {
-            let result = self.algo(&data.points, &dist_matrix);
-            total_distance += result.distance;
-            total_steps += result.n_steps;
-
-            if result.distance < best_distance {
-                best_distance = result.distance;
-                best_solution = result.solution;
-            }
-
-            if print && (i % 10 == 0 || i == n - 1) {
-                let progress = ((i + 1) as f64 / n as f64 * 100.0) as u32;
-                let bar_width = 30;
-                let filled = (progress as usize * bar_width / 100).min(bar_width);
-                let bar = format!("[{}{}]", "=".repeat(filled), " ".repeat(bar_width - filled));
-                print!("\r\x1b[1;31m[SA]\x1b[0m {} {}/{} ({}%) | Best: {}", bar, i + 1, n, progress, best_distance);
-                std::io::Write::flush(&mut std::io::stdout()).ok();
-            }
-        }
-
-        if print {
-            println!("\n\x1b[1;32m[SimulatedAnnealing] Complete\x1b[0m");
-        }
-
-        TspAlgorithmResult {
-            name: format!("SimulatedAnnealing_{}", data.name),
-            mean_distance: total_distance / n as i64,
-            mean_n_steps: (total_steps / n as u64) as i64,
-            best_solution,
-        }
+        self.run_multithreaded(data, print, 100)
     }
 }
 
@@ -663,6 +721,10 @@ impl TabuSearchBase {
 }
 
 impl TspProcedure for TabuSearchBase {
+    fn name(&self) -> &str {
+        "TabuSearch"
+    }
+
     fn algo(&self, points: &VecPoints, dist_matrix: &DistanceMatrix) -> AlgoSearchResult {
         let mut route: Vec<usize> = (0..points.points.len()).collect();
         let mut rng = rand::rng();
@@ -761,9 +823,7 @@ impl TspProcedure for TabuSearchBase {
         let mut best_distance = i64::MAX;
         let mut best_solution = data.points.clone();
 
-        if print {
-            println!("\x1b[1;36m[TabuSearch] Starting optimization on {} vertices\x1b[0m", data.name);
-        }
+        print_starting("TabuSearch", &data.name, print);
 
         for i in 0..n {
             let result = self.algo(&data.points, &dist_matrix);
@@ -775,19 +835,10 @@ impl TspProcedure for TabuSearchBase {
                 best_solution = result.solution;
             }
 
-            if print && (i % 10 == 0 || i == n - 1) {
-                let progress = ((i + 1) as f64 / n as f64 * 100.0) as u32;
-                let bar_width = 30;
-                let filled = (progress as usize * bar_width / 100).min(bar_width);
-                let bar = format!("[{}{}]", "=".repeat(filled), " ".repeat(bar_width - filled));
-                print!("\r\x1b[1;34m[TS]\x1b[0m {} {}/{} ({}%) | Best: {}", bar, i + 1, n, progress, best_distance);
-                std::io::Write::flush(&mut std::io::stdout()).ok();
-            }
+            print_progress("TSP", print, n, best_distance, i);
         }
 
-        if print {
-            println!("\n\x1b[1;32m[TabuSearch] Complete\x1b[0m");
-        }
+        print_complete("TabuSearch", print);
 
         TspAlgorithmResult {
             name: format!("TabuSearch_{}", data.name),
