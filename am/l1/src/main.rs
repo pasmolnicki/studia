@@ -218,8 +218,9 @@ const LOCAL_SEARCH_Z3: &str = "Z3";
 fn run_full_experiment() -> Result<(), Box<dyn Error>> {
     // These are the TSP problem instances to solve
     let data_list = 
-        // load_below_1k_data_sets();
-        load_lagrge_data_sets();
+        load_small_data_sets();
+        // load_lagrge_data_sets();
+        // tsp::load_data(&["ca4663.tsp", "tz6117.tsp", "eg7146.tsp", "ei8246.tsp"]);
 
     for data in data_list.iter() {
         println!("Processing: {}", data.name);
