@@ -1,32 +1,13 @@
-## Western Sahara (wi29.tsp)
-
-| File | Algorithm | Mean Distance | Mean Steps | Best Distance | Optimum Ratio |
-|---|---|---|---|---|---|
-| wi29.tsp | simulated_ann | 27566 | 4605 | 25353 | 1.089 |
-| wi29.tsp | tabu_search | 27287 | 29 | 25220 | 1.094 |
-| wi29.tsp | Z1 | 27350 | 24 | 25220 | 1.094 |
-| wi29.tsp | Z2 | 52881 | 15 | 34840 | 0.792 |
-| wi29.tsp | Z3 | 35824 | 24 | 27671 | 0.998 |
-
-## Djibouti (dj38.tsp)
-
-| File | Algorithm | Mean Distance | Mean Steps | Best Distance | Optimum Ratio |
-|---|---|---|---|---|---|
-| dj38.tsp | simulated_ann | 6929 | 5305 | 6164 | 1.080 |
-| dj38.tsp | tabu_search | 6700 | 40 | 6160 | 1.081 |
-| dj38.tsp | Z1 | 6696 | 34 | 6160 | 1.081 |
-| dj38.tsp | Z2 | 14061 | 21 | 9880 | 0.674 |
-| dj38.tsp | Z3 | 9771 | 31 | 7255 | 0.917 |
 
 ## Qatar (qa194.tsp)
 
 | File | Algorithm | Mean Distance | Mean Steps | Best Distance | Optimum Ratio |
 |---|---|---|---|---|---|
-| qa194.tsp | simulated_ann | 13589 | 16642 | 12237 | 0.764 |
-| qa194.tsp | tabu_search | 24035 | 70 | 21918 | 0.427 |
-| qa194.tsp | Z1 | 10090 | 212 | 9581 | 0.976 |
-| qa194.tsp | Z2 | 21424 | 169 | 17910 | 0.522 |
-| qa194.tsp | Z3 | 21047 | 277 | 17222 | 0.543 |
+| qa194.tsp | simulated_ann | 13639 | 16342 | 11951 | 0.783 |
+| qa194.tsp | tabu_search | 24029 | 70 | 22055 | 0.424 |
+| qa194.tsp | Z1 | 10087 | 212 | 9663 | 0.968 |
+| qa194.tsp | Z2 | 21290 | 171 | 17424 | 0.537 |
+| qa194.tsp | Z3 | 20798 | 279 | 17396 | 0.538 |
 
 ## Uruguay (uy734.tsp)
 
@@ -79,7 +60,7 @@
 
 | File | Algorithm | Mean Distance | Mean Steps | Best Distance | Optimum Ratio |
 |---|---|---|---|---|---|
-| eg7146.tsp | simulated_ann | 3279122 | 3323 | 2679122 | 0.064 |
+| eg7146.tsp | simulated_ann | 3993812 | 3323 | 2679122 | 0.064 |
 | eg7146.tsp | tabu_search | 11919799 | 200 | 11658321 | 0.015 |
 | eg7146.tsp | Z2 | 489409 | 9328 | 408979 | 0.422 |
 
@@ -87,7 +68,7 @@
 
 | File | Algorithm | Mean Distance | Mean Steps | Best Distance | Optimum Ratio |
 |---|---|---|---|---|---|
-| ei8246.tsp | simulated_ann | 3374272 | 3002 | 2954272 | 0.070 |
+| ei8246.tsp | simulated_ann | 3849462 | 3002 | 2954272 | 0.070 |
 | ei8246.tsp | tabu_search | 13319218 | 200 | 13178569 | 0.016 |
 | ei8246.tsp | Z2 | 715028 | 10294 | 591807 | 0.348 |
 
