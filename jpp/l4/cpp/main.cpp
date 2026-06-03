@@ -60,12 +60,14 @@ std::chrono::milliseconds get_thinking_time() {
     return std::chrono::milliseconds(std::uniform_int_distribution(MIN_THINKING, MAX_THINKING)(engine));
 }
 
-void eat() {
-    
+void eat(std::uint32_t i, sync_print& print) {
+    auto time = get_eating_time();
+    print(std::format("{} is eating for {}ms", i, time.count()));
+    std::this_thread::sleep_for(time);
 }
 
 
-void philosopher(std::uint32_t i, std::shared_ptr<Constraints> constr, std::shared_ptr<sync_print> print) {
+void philosopher(std::uint32_t i, const Constraints& constr, sync_print& print) {
     auto& stats = g_stats[i];
     bool untagged = false;
 
@@ -74,7 +76,7 @@ void philosopher(std::uint32_t i, std::shared_ptr<Constraints> constr, std::shar
 
 
 
-        if (!untagged && stats.n_eaten_meals == constr->n_meals_per_philo) {
+        if (!untagged && stats.n_eaten_meals == constr.n_meals_per_philo) {
             tag_finished_eating(i);
             untagged = true;
         }
