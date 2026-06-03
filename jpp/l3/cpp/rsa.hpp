@@ -22,8 +22,6 @@ class RSA {
     }
 
     inline std::size_t find_exponent(std::size_t lambda) {
-        // Find such e, so that gcd(e, lambda) == 1
-        // auto e = (1uz << 16) + 1;
         std::mt19937_64 engine(std::random_device{}());
         std::uniform_int_distribution<std::size_t> dist(2, lambda - 1);
 
@@ -59,5 +57,9 @@ public:
     std::size_t decrypt(std::size_t cipher) {
         return Ring<N>(cipher).pow(d);
         // return fast_pow(cipher, d, N);
+    }
+
+    constexpr unsigned int getModulo() const {
+        return N;
     }
 };

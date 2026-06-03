@@ -79,5 +79,11 @@ package body RSA is
          return Value (Result_Ring);
       end Decrypt;
 
+      function Get_Modulo (Rsa: RSA_Type) return Natural is 
+         package Ring_N is new Ring.Generic_Ring (N => N);
+      begin
+         return N;
+      end Get_Modulo;
+
    end Generic_RSA;
 end RSA;

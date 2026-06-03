@@ -11,6 +11,7 @@ package RSA is
       function Get_Public_Key (Rsa : RSA_Type) return Natural;
       function Encrypt (Rsa : RSA_Type; Message : Natural; Public_Key : Natural) return Natural;
       function Decrypt (Rsa : RSA_Type; Cipher : Natural) return Natural;
+      function Get_Modulo(Rsa: RSA_Type) return Natural;
 
    private
       type RSA_Type is record
