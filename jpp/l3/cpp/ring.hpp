@@ -11,8 +11,8 @@
 template <std::size_t N>
 class Ring {
 public:
-    Ring() : value(0) {}
-    explicit Ring(std::size_t val) : value(val % N) {};
+    constexpr Ring() : value(0) {}
+    constexpr explicit Ring(std::size_t val) : value(val % N) {};
     Ring(const Ring&) = default;
     Ring& operator=(const Ring&) = default;
     Ring(Ring&&) = default;
@@ -91,16 +91,30 @@ public:
         return Ring(find_inverse(this->value));
     }
 
-    // template<std::size_t P>
-    // constexpr Ring<P> inverse() const {
-    //     return Ring<P>(find_inverse(this->value, P));
-    // }
+    constexpr Ring pow(std::size_t exp) const {
+        return Ring(fast_pow(this->value, exp, N));
+    }
 
     operator std::size_t() const {
         return value;
     }
 
 private:
+
+    static constexpr std::size_t fast_pow(std::size_t base, std::size_t exp, std::size_t mod) {
+        std::size_t result = 1;
+        unsigned long long b = base % mod;
+
+        while (exp > 0) {
+            if (exp & 1) {
+                result = (result * base) % mod;
+            }
+            exp = exp >> 1;
+            base = (base * base) % mod;
+        }
+        return result;
+    }
+
     // Find the multiplicative inverse of other.value modulo N, it may throw
     std::size_t guard_inverse(std::size_t val) const noexcept(false) {
         auto inverse = find_inverse(val);

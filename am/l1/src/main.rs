@@ -238,7 +238,6 @@ fn run_full_experiment() -> Result<(), Box<dyn Error>> {
 }
 
 fn generate_md_tables() {
-    // "mu1979.tsp", "ca4663.tsp" 1,290,319, ("tz6117.tsp", 95345), ("eg7146.tsp", 172387), "ei8246.tsp" 206,171
     let optimal_tours = [
         ("wi29.tsp", 27603, "Western Sahara"),
         ("dj38.tsp", 6656, "Djibouti"),
