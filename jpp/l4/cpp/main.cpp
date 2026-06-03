@@ -24,16 +24,27 @@ public:
 };
 
 using Stats = struct {
-    std::uint32_t n_eaten_meals;
+    std::uint32_t n_eaten_meals{0};
 };
 
 using Constraints = struct {
-    std::uint32_t n_meals_per_philo;
-    std::uint32_t n_philo;
+    std::uint32_t n_meals_per_philo{5};
+    std::uint32_t n_philo{5};
+};
+
+enum class ForkState {
+    DIRTY,
+    CLEAN
+};
+
+using Fork = struct {
+    std::mutex mut{};
+    ForkState state{ForkState::DIRTY};
 };
 
 static std::mutex g_critial_section{};
 static std::vector<Stats> g_stats;
+static std::vector<Fork> g_forks;
 
 static std::mutex flag_section{};
 static std::vector<bool> flag_all_finished;
@@ -66,6 +77,21 @@ void eat(std::uint32_t i, sync_print& print) {
     std::this_thread::sleep_for(time);
 }
 
+void think(std::uint32_t i, sync_print& print) {
+    auto time = get_thinking_time();
+    print(std::format("{} is thinking for {}ms", i, time.count()));
+    std::this_thread::sleep_for(time);
+}
+
+void take_forks(std::uint32_t i, sync_print& print) {
+    auto& f = g_forks[i];
+    std::lock_guard<std::mutex> my_fork(f.mut);
+    
+}
+
+void put_forks(std::uint32_t i, sync_print& print) {
+
+}
 
 void philosopher(std::uint32_t i, const Constraints& constr, sync_print& print) {
     auto& stats = g_stats[i];
