@@ -1,84 +1,89 @@
-with Ada.Text_IO; use Ada.Text_IO;
+with Ring;
 with Ada.Numerics.Discrete_Random;
 
 package body RSA is
    package body Generic_RSA is
 
+      N : constant Natural := P * Q;
+
       function GCD (A, B : Natural) return Natural is
-         A_Copy : Natural := A;
-         B_Copy : Natural := B;
-         Temp : Natural;
+         Temp_A : Natural := A;
+         Temp_B : Natural := B;
       begin
-         while B_Copy /= 0 loop
-            Temp := B_Copy;
-            B_Copy := A_Copy mod B_Copy;
-            A_Copy := Temp;
+         while Temp_B /= 0 loop
+            declare
+               Temp : Natural := Temp_B;
+            begin
+               Temp_B := Temp_A mod Temp_B;
+               Temp_A := Temp;
+            end;
          end loop;
-         return A_Copy;
+         return Temp_A;
       end GCD;
 
       function Get_LCM return Natural is
-         P_Minus_1 : Natural := P - 1;
-         Q_Minus_1 : Natural := Q - 1;
-         GCD_Val : Natural := GCD(P_Minus_1, Q_Minus_1);
+         Lambda : Natural := (P - 1) * (Q - 1) / GCD(P - 1, Q - 1);
       begin
-         return (P_Minus_1 * Q_Minus_1) / GCD_Val;
+         return Lambda;
       end Get_LCM;
 
       function Find_Exponent (Lambda : Natural) return Natural is
-         package Random_Exponent is new Ada.Numerics.Discrete_Random(Natural);
-         Generator : Random_Exponent.Generator;
+         package Random_Natural is new Ada.Numerics.Discrete_Random (Natural);
+         Gen : Random_Natural.Generator;
          E : Natural;
       begin
-         Random_Exponent.Reset(Generator);
-         
+         Random_Natural.Reset (Gen);
          loop
-            E := Random_Exponent.Random(Generator) mod (Lambda - 1);
-            if E < 2 then
-               E := 2;
-            end if;
-            exit when GCD(E, Lambda) = 1;
+            E := Random_Natural.Random (Gen) mod (Lambda - 2) + 2;
+            exit when GCD (E, Lambda) = 1;
          end loop;
-         
          return E;
       end Find_Exponent;
 
       function Create return RSA_Type is
-         N : constant Natural := P * Q;
-         Lambda : constant Natural := Get_LCM;
-         E : constant Natural := Find_Exponent(Lambda);
+         Lambda : Natural := Get_LCM;
+         E : Natural := Find_Exponent (Lambda);
          
-         -- Use Ring to calculate inverse
-         package Ring_Lambda is new Ring.Generic_Ring(N => Lambda);
-         E_Ring : Ring_Lambda.Ring_Type := Ring_Lambda.Create(E);
-         D_Ring : Ring_Lambda.Ring_Type := Ring_Lambda.Inverse(E_Ring);
-         D : Natural := Ring_Lambda.Value(D_Ring);
+         package Ring_Lambda is new Ring.Generic_Ring (N => Lambda);
+         use Ring_Lambda;
+         
+         Ring_E : Ring_Type := Create (E);
+         Ring_D : Ring_Type := Inverse (Ring_E);
+         D : Natural := Value (Ring_D);
       begin
-         return (Exp => E, LCM => Lambda, D => D);
+         return (Exp => E, Lcm => Lambda, D => D);
       end Create;
 
-      function Get_Public_Key (Item : RSA_Type) return Natural is
+      function Get_Public_Key (Rsa : RSA_Type) return Natural is
       begin
-         return Item.Exp;
+         return Rsa.Exp;
       end Get_Public_Key;
 
-      function Encrypt (Item : RSA_Type; Message : Natural; Public_Key : Natural) return Natural is
-         N : constant Natural := P * Q;
-         package Ring_N is new Ring.Generic_Ring(N => N);
-         Msg_Ring : Ring_N.Ring_Type := Ring_N.Create(Message);
-         Result_Ring : Ring_N.Ring_Type := Ring_N.Pow(Msg_Ring, Public_Key);
+      function Encrypt (Rsa : RSA_Type; Message : Natural; Public_Key : Natural) return Natural is
+         package Ring_N is new Ring.Generic_Ring (N => N);
+         use Ring_N;
+         
+         Message_Ring : Ring_Type := Create (Message);
+         Result_Ring : Ring_Type := Pow (Message_Ring, Public_Key);
       begin
-         return Ring_N.Value(Result_Ring);
+         return Value (Result_Ring);
       end Encrypt;
 
-      function Decrypt (Item : RSA_Type; Cipher : Natural) return Natural is
-         N : constant Natural := P * Q;
-         package Ring_N is new Ring.Generic_Ring(N => N);
-         Cipher_Ring : Ring_N.Ring_Type := Ring_N.Create(Cipher);
-         Result_Ring : Ring_N.Ring_Type := Ring_N.Pow(Cipher_Ring, Item.D);
+      function Decrypt (Rsa : RSA_Type; Cipher : Natural) return Natural is
+         package Ring_N is new Ring.Generic_Ring (N => N);
+         use Ring_N;
+         
+         Cipher_Ring : Ring_Type := Create (Cipher);
+         Result_Ring : Ring_Type := Pow (Cipher_Ring, Rsa.D);
       begin
-         return Ring_N.Value(Result_Ring);
+         return Value (Result_Ring);
       end Decrypt;
+
+      function Get_Modulo (Rsa: RSA_Type) return Natural is 
+         package Ring_N is new Ring.Generic_Ring (N => N);
+      begin
+         return N;
+      end Get_Modulo;
 
    end Generic_RSA;
 end RSA;

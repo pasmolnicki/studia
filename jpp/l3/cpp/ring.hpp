@@ -103,7 +103,6 @@ private:
 
     static constexpr std::size_t fast_pow(std::size_t base, std::size_t exp, std::size_t mod) {
         std::size_t result = 1;
-        unsigned long long b = base % mod;
 
         while (exp > 0) {
             if (exp & 1) {

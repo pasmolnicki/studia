@@ -1,19 +1,19 @@
+with Ring;
 with Ada.Numerics.Discrete_Random;
 
 package body DHSetup is
-   package body Generic_DHSetup is
-      use Natural_Vectors;
+   package body Generic_DH is
 
-      function Factorize return Vector is
+      function Factorize return Natural_Vectors.Vector is
+         Factors : Natural_Vectors.Vector;
          N : Natural := P - 1;
          Div : Natural := 2;
          First_Div : Boolean := True;
-         Factors : Vector;
       begin
          while N /= 1 loop
             if N mod Div = 0 then
                if First_Div then
-                  Factors.Append(Div);
+                  Factors.Append (Div);
                   First_Div := False;
                end if;
                N := N / Div;
@@ -25,16 +25,17 @@ package body DHSetup is
          return Factors;
       end Factorize;
 
-      function Is_Generator (Factors : Vector; N : Natural) return Boolean is
-         package Ring_P is new Ring.Generic_Ring(N => P);
+      function Is_Generator (Factors : Natural_Vectors.Vector; N : Natural) return Boolean is
+         package Ring_P is new Ring.Generic_Ring (N => P);
+         use Ring_P;
       begin
          for F of Factors loop
             declare
                Exp : Natural := (P - 1) / F;
-               Result_Ring : Ring_P.Ring_Type := Ring_P.Pow(Ring_P.Create(N), Exp);
-               Result : Natural := Ring_P.Value(Result_Ring);
+               Base : Ring_Type := Create (N);
+               Result : Ring_Type := Pow (Base, Exp);
             begin
-               if Result = 1 then
+               if Value (Result) = 1 then
                   return False;
                end if;
             end;
@@ -43,40 +44,38 @@ package body DHSetup is
       end Is_Generator;
 
       function Find_Generator return Natural is
-         package Random_Gen is new Ada.Numerics.Discrete_Random(Natural);
-         Generator : Random_Gen.Generator;
-         Factors : Vector := Factorize;
+         package Random_Natural is new Ada.Numerics.Discrete_Random (Natural);
+         Gen : Random_Natural.Generator;
+         Factors : Natural_Vectors.Vector := Factorize;
          G : Natural;
       begin
-         Random_Gen.Reset(Generator);
-
+         Random_Natural.Reset (Gen);
          loop
-            G := Random_Gen.Random(Generator) mod (P - 1);
-            if G >= 2 then
-               if Is_Generator(Factors, G) then
-                  return G;
-               end if;
-            end if;
+            G := Random_Natural.Random (Gen) mod (P - 1) + 1;
+            exit when Is_Generator (Factors, G);
          end loop;
+         return G;
       end Find_Generator;
 
-      function Create return DHSetup_Type is
+      function Create return DH_Type is
       begin
          return (Gen => Find_Generator);
       end Create;
 
-      function Get_Generator (Item : DHSetup_Type) return Natural is
+      function Get_Generator (Dh : DH_Type) return Natural is
       begin
-         return Item.Gen;
+         return Dh.Gen;
       end Get_Generator;
 
-      function Power (Item : DHSetup_Type; A : Natural; B : Natural) return Natural is
-         package Ring_P is new Ring.Generic_Ring(N => P);
-         A_Ring : Ring_P.Ring_Type := Ring_P.Create(A);
-         Result_Ring : Ring_P.Ring_Type := Ring_P.Pow(A_Ring, B);
+      function Power (Dh : DH_Type; A : Natural; B : Natural) return Natural is
+         package Ring_P is new Ring.Generic_Ring (N => P);
+         use Ring_P;
+         
+         Base : Ring_Type := Create (A);
+         Result : Ring_Type := Pow (Base, B);
       begin
-         return Ring_P.Value(Result_Ring);
+         return Value (Result);
       end Power;
 
-   end Generic_DHSetup;
+   end Generic_DH;
 end DHSetup;

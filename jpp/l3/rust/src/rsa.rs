@@ -59,4 +59,8 @@ impl <const P: u64, const Q: u64> RSA<P, Q> {
     pub fn decrypt(&self, cipher: u64) -> u64 {
         mod_pow(cipher, self.d, self.n)
     }
+
+    pub fn getModulo() -> u64 {
+        P * Q
+    }
 }

@@ -1,25 +1,22 @@
-with Ada.Containers.Vectors;
 with Ring;
+with Ada.Containers.Vectors;
 
 package DHSetup is
    generic
       P : Positive;
-   package Generic_DHSetup is
-      type DHSetup_Type is private;
+   package Generic_DH is
+      type DH_Type is private;
 
-      function Create return DHSetup_Type;
-
-      function Get_Generator (Item : DHSetup_Type) return Natural;
-
-      function Power (Item : DHSetup_Type; A : Natural; B : Natural) return Natural;
+      function Create return DH_Type;
+      function Get_Generator (Dh : DH_Type) return Natural;
+      function Power (Dh : DH_Type; A : Natural; B : Natural) return Natural;
 
    private
-      type DHSetup_Type is record
+      type DH_Type is record
          Gen : Natural;
       end record;
 
-      package Natural_Vectors is new Ada.Containers.Vectors(Natural, Natural);
+      package Natural_Vectors is new Ada.Containers.Vectors (Natural, Natural);
       use Natural_Vectors;
-
-   end Generic_DHSetup;
+   end Generic_DH;
 end DHSetup;

@@ -34,15 +34,13 @@ void diff_hell() {
     constexpr auto P = 1234567891;
     DHSetup<P> setup;
     
-    std::cout << std::format("Generator: {}\n", setup.getGenerator());
-    
     User<P> alice(setup);
     User<P> bob(setup);
 
     alice.setKey(bob.getPublicKey());
     bob.setKey(alice.getPublicKey());
 
-    std::size_t message = 1234;
+    std::size_t message = 12345;
     auto cipher = alice.encrypt(message);
     auto decrypted = bob.decrypt(cipher);
 
