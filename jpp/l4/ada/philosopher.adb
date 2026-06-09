@@ -167,7 +167,7 @@ package body Philosopher is
       procedure Eat_Meal is
          Rand_Duration : Integer;
       begin
-         Rand_Duration := Random_Gen.Random_Value mod 401 + 100;
+         Rand_Duration := Random_Gen.Random_Value mod (251-100) + 100;
          Sync_Print.Println
             (Positive'Image (Id) & " is eating for" & Integer'Image (Rand_Duration) & "us");
          delay Duration (Rand_Duration) / 1_000_000.0;
@@ -176,7 +176,7 @@ package body Philosopher is
       procedure Think is
          Rand_Duration : Integer;
       begin
-         Rand_Duration := Random_Gen.Random_Value mod 401 + 100;
+         Rand_Duration := Random_Gen.Random_Value mod (501-300) + 300;
          Sync_Print.Println
             (Positive'Image (Id) & " is thinking for" & Integer'Image (Rand_Duration) & "us");
          delay Duration (Rand_Duration) / 1_000_000.0;

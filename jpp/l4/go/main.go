@@ -53,11 +53,11 @@ func getRandomDuration(min, max int64) time.Duration {
 }
 
 func getEatingDuration() time.Duration {
-	return getRandomDuration(100, 500)
+	return getRandomDuration(100, 250)
 }
 
 func getThinkingDuration() time.Duration {
-	return getRandomDuration(100, 500)
+	return getRandomDuration(300, 500)
 }
 
 func eat(id int, sp *SyncPrint) {
