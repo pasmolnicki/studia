@@ -1,0 +1,30 @@
+CompileFlags:
+  # Force C++20 standard
+  Add: [-std=c++20]
+  
+  # Optional: Add common warning flags
+  Add: [-Wall, -Wextra, -Wpedantic]
+  
+  # Optional: Specify compiler if different from default
+  # Compiler: clang++
+
+# Enable background indexing for faster startup and better completion
+Index:
+  Background: Build
+
+# Improve completion suggestions
+Completion:
+  AllScopes: true
+  IncludeInsertion: IWYU
+
+# Diagnostics configuration
+Diagnostics:
+  ClangTidy:
+    Enable: true
+  UnusedIncludes: Strict
+
+# Formatting fallback (if no .clang-format is present)
+If:
+  PathMatch: ["**/*.cpp", "**/*.h", "**/*.hpp", "**/*.cc", "**/*.cxx"]
+  CompileFlags:
+    Remove: [-Werror] # Remove Werror if it blocks diagnostics during development
