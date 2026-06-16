@@ -89,7 +89,7 @@ begin
       -- Stan użytkownika (odpowiednik is_interested, finished oraz liczników atomowych)
       protected type User_State is
          procedure Set_Interested;
-         function Try_Consume_Interest return Boolean;
+         procedure Try_Consume_Interest(Success: out Boolean);
          procedure Set_Finished;
          function Is_Finished return Boolean;
          procedure Inc_Sent;
@@ -109,15 +109,15 @@ begin
             Interested := True;
          end Set_Interested;
 
-         function Try_Consume_Interest return Boolean is
-         begin
-            if Interested then
-               Interested := False;
-               return True;
-            else
-               return False;
-            end if;
-         end Try_Consume_Interest;
+        procedure Try_Consume_Interest (Success : out Boolean) is
+        begin
+          if Interested then
+              Interested := False;
+              Success    := True;
+          else
+              Success    := False;
+          end if;
+        end Try_Consume_Interest;
 
          procedure Set_Finished is
          begin
@@ -266,6 +266,7 @@ begin
 
          -- Odpowiednik choose_user z nieblokującym selectem (Try_Consume_Interest)
          procedure Choose_User(Found_User : out User_Ptr; Updated_Iter : in out Integer) is
+          Consumed: Boolean;
          begin
             Found_User := null;
             for K in Users_Ref'Range loop
@@ -274,7 +275,8 @@ begin
                   Updated_Iter := Users_Ref'First;
                end if;
 
-               if Users_Ref(Updated_Iter).State.Try_Consume_Interest then
+               Users_ref(Updated_Iter).State.Try_Consume_Interest(Consumed);
+               if Consumed then
                   Found_User := Users_Ref(Updated_Iter);
                   return;
                end if;
@@ -332,7 +334,7 @@ begin
       Random_Provider.Reset;
 
       -- Tworzenie użytkowników i ich zadań (odpowiednik go user_loop)
-      Users := new User_Array(0 .. N_Users - 1);
+      Users := new User_Array;
       for I in Users'Range loop
          Users(I)         := new User_Type;
          Users(I).Id      := I;
@@ -377,6 +379,11 @@ begin
          Ada.Text_IO.Put_Line("Total sent: " & Img(Total_Sent));
          Ada.Text_IO.Put_Line("Total received: " & Img(Total_Received));
          Ada.Text_IO.Put_Line("Min-max received messages: min=" & Img(Min_Received) & " max=" & Img(Max_Received));
+
+         for I in Users'Range loop
+           Ada.Text_IO.Put_Line(ASCII.HT & "User[" & Img(I)& "] received: " &
+                Img(Users(I).State.Get_Received) & ", sent: " & Img(Users(I).State.Get_Sent));
+         end loop;
       end;
    end;
 end Main;
