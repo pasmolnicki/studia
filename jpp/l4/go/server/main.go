@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"os"
 	"runtime"
@@ -214,9 +215,9 @@ func main() {
 
 	go server(users, sp, wg)
 	wg.Wait()
-	fmt.Println("--------- Results ---------")
 
-	min_received := (1 << 31)
+	// Count up the results
+	min_received := math.MaxInt
 	max_received := 0
 	total_sent := 0
 	total_received := 0
@@ -232,6 +233,7 @@ func main() {
 		}
 	}
 
+	fmt.Println("--------- Results ---------")
 	fmt.Printf("Total sent: %d\n", total_sent)
 	fmt.Printf("Total received: %d\n", total_received)
 	fmt.Printf("Min-max received messages: min=%d max=%d\n", min_received, max_received)
