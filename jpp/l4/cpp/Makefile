@@ -1,7 +1,7 @@
 CC = g++
 OPT_FLAGS = -std=c++20 -O2 -pthread
 DEBUG_FLAGS = -std=c++20 -g -pthread -fsanitize=address
-COMM = $(CC) $(FLAGS)
+COMM = $(CC) $(OPT_FLAGS)
 
 philo: main.cpp
 	$(COMM) -o main main.cpp
