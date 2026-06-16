@@ -1,0 +1,16 @@
+FC := gnatmake
+FFLAGS := -Wall
+
+SOURCES := main.adb
+TARGET := main
+
+all: $(TARGET)
+
+$(TARGET): $(SOURCES)
+	$(FC) $(FFLAGS) -o $(TARGET) main.adb
+
+clean:
+	rm -f $(TARGET)
+	rm -f *.o *.ali
+
+.PHONY: all clean
