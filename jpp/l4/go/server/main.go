@@ -57,7 +57,8 @@ func random_user(n_users int) int {
 	return rand.Intn(n_users)
 }
 
-func user_loop(user *User, sp *SyncPrint, n_users, n_messages int) {
+func user_loop(user *User, sp *SyncPrint, n_users, n_messages int, wg *sync.WaitGroup) {
+	defer wg.Done()
 	untagged := false
 
 	user.is_intrested <- true
@@ -74,24 +75,11 @@ func user_loop(user *User, sp *SyncPrint, n_users, n_messages int) {
 		case <-user.terminate:
 			return
 
-		// Wait until user can send another n_messages
-		// only server can let us do it
-		case <-user.can_send:
-			// Server chose this user to write it's message
-			recipent := random_user(n_users)
-			for recipent == user.id {
-				recipent = random_user(n_users)
-			}
-
-			msg := Message{
-				msg:      "Hello",
-				sender:   user.id,
-				receiver: recipent,
-			}
-			user.outgoing <- msg
+		// This is crutial if the user sent message to himself
+		// In this select the case <-user.incoming will be handled first
+		// and only then this will execute
+		case <-user.is_delivered:
 			user.n_sent++
-			sp.Println(fmt.Sprintf("\tUser[%d] sending message: \"%s\" to: %d", user.id, msg.msg, msg.receiver))
-
 			if user.n_sent >= n_messages && !untagged {
 				untagged = true
 				user.finished.Store(true)
@@ -99,11 +87,18 @@ func user_loop(user *User, sp *SyncPrint, n_users, n_messages int) {
 				user.is_intrested <- true
 			}
 
-			// Block until the message is delivered
-			// otherwise it would be a buffered solution wth buffer size = 1
-			<-user.is_delivered
+		// Wait until user can send another n_messages
+		// only server can let us do it
+		case <-user.can_send:
+			// Server chose this user to write it's message
+			msg := Message{
+				msg:      "Hello",
+				sender:   user.id,
+				receiver: random_user(n_users),
+			}
+			sp.Println(fmt.Sprintf("\tUser[%d] sending message: \"%s\" to: %d", user.id, msg.msg, msg.receiver))
+			user.outgoing <- msg
 		}
-
 	}
 }
 
@@ -154,7 +149,8 @@ func terminate_all(users []*User, sp *SyncPrint) {
 	}
 }
 
-func server(users []*User, sp *SyncPrint) {
+func server(users []*User, sp *SyncPrint, wg *sync.WaitGroup) {
+	defer wg.Done()
 	last_iter := 0
 	for {
 		sender, end_iter := choose_user(users, last_iter)
@@ -207,14 +203,17 @@ func main() {
 		return
 	}
 
+	wg := &sync.WaitGroup{}
+	wg.Add(n_users + 1)
 	sp := &SyncPrint{}
 	users := make([]*User, n_users)
 	for i := range users {
 		users[i] = NewUser(i)
-		go user_loop(users[i], sp, n_users, n_messages_per_user)
+		go user_loop(users[i], sp, n_users, n_messages_per_user, wg)
 	}
 
-	server(users, sp)
+	go server(users, sp, wg)
+	wg.Wait()
 	fmt.Println("--------- Results ---------")
 
 	min_received := (1 << 31)
