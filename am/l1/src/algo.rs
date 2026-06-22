@@ -1,14 +1,18 @@
-use crate::tsp::{self, VecPoints, point_distance};
-use rand::{Rng, RngExt};
+use crate::tsp::{
+    self, DistanceMatrix, VecPoints, apply_invert, apply_transpose, calculate_invert_delta,
+    calculate_transpose_delta, rand_tour,
+};
+use crate::utils::TabooList;
 use rand::seq::SliceRandom;
-use serde::{Serialize};
+use rand::{Rng, RngExt};
+use serde::Serialize;
 use std::fs::File;
 use std::io::Write;
-use std::path::{PathBuf};
-use std::sync::{Arc, Mutex};
-use std::{path};
-use threadpool::ThreadPool;
+use std::path;
+use std::path::PathBuf;
 use std::sync::mpsc::channel;
+use std::sync::{Arc, Mutex};
+use threadpool::ThreadPool;
 
 #[derive(Debug, Serialize)]
 pub struct TspAlgorithmResult {
@@ -20,7 +24,12 @@ pub struct TspAlgorithmResult {
 
 impl Default for TspAlgorithmResult {
     fn default() -> Self {
-        Self { name: "name".to_string(), mean_distance: i64::MAX, mean_n_steps: i64::MAX, best_solution: VecPoints::new() }
+        Self {
+            name: "name".to_string(),
+            mean_distance: i64::MAX,
+            mean_n_steps: i64::MAX,
+            best_solution: VecPoints::new(),
+        }
     }
 }
 
@@ -50,109 +59,23 @@ pub fn save_to_file<T: NamedObject + serde::Serialize>(result: T, file_name: &st
     let serialized = serde_json::to_string(&result).unwrap();
     let path = path::absolute(PathBuf::from(file_name)).unwrap();
     let file_path = path.join(format!("{}.json", result.name()));
-    let mut file = File::create(&file_path).expect(
-        &format!("Couldn't create file: {}", file_path.to_str().unwrap()));
-    
-    file.write_all(serialized.as_bytes()).expect("Couldn't write to file");
+    let mut file = File::create(&file_path).expect(&format!(
+        "Couldn't create file: {}",
+        file_path.to_str().unwrap()
+    ));
+
+    file.write_all(serialized.as_bytes())
+        .expect("Couldn't write to file");
 }
 
 // Distance matrix builder - pre-computes distances between all pairs of points
-#[derive(Clone)]
-pub struct DistanceMatrix {
-    matrix: Vec<Vec<i64>>,
-}
-
-impl DistanceMatrix {
-    fn new(points: &[(f64, f64)]) -> Self {
-        let n = points.len();
-        let mut matrix = vec![vec![0i64; n]; n];
-
-        for i in 0..n {
-            for j in (i + 1)..n {
-                let dist = point_distance(points[i], points[j]) as i64;
-                matrix[i][j] = dist;
-                matrix[j][i] = dist;
-            }
-        }
-
-        DistanceMatrix { matrix }
-    }
-
-    fn get(&self, i: usize, j: usize) -> i64 {
-        self.matrix[i][j]
-    }
-
-    fn calculate_tour_length(&self, route: &[usize]) -> i64 {
-        let n = route.len();
-        let mut sum = 0i64;
-        for i in 1..n {
-            sum += self.get(route[i - 1], route[i]);
-        }
-        sum += self.get(route[n - 1], route[0]);
-        sum
-    }
-}
-
-// Invert move: reverses the sequence from index i to j
-fn apply_invert(route: &mut [usize], i: usize, j: usize) {
-    let mut left = i;
-    let mut right = j;
-    while left < right {
-        route.swap(left, right);
-        left += 1;
-        right -= 1;
-    }
-}
-
-// Calculate the delta (cost change) of inverting from i to j
-fn calculate_invert_delta(dist_matrix: &DistanceMatrix, route: &[usize], i: usize, j: usize) -> i64 {
-    let n = route.len();
-    let im1 = (i as i32 - 1).rem_euclid(n as i32) as usize;
-    let jp1 = (j + 1) % n;
-
-    let old_cost = dist_matrix.get(route[im1], route[i]) + dist_matrix.get(route[j], route[jp1]);
-    let new_cost = dist_matrix.get(route[im1], route[j]) + dist_matrix.get(route[i], route[jp1]);
-
-    new_cost - old_cost
-}
-
-// Transpose move: swaps elements at positions i and j
-fn apply_transpose(route: &mut [usize], i: usize, j: usize) {
-    route.swap(i, j);
-}
-
-// Calculate the delta (cost change) of transposing positions i and j
-fn calculate_transpose_delta(dist_matrix: &DistanceMatrix, route: &[usize], i: usize, j: usize) -> i64 {
-    let n = route.len();
-    let im1 = (i as i32 - 1).rem_euclid(n as i32) as usize;
-    let ip1 = (i + 1) % n;
-    let jm1 = (j as i32 - 1).rem_euclid(n as i32) as usize;
-    let jp1 = (j + 1) % n;
-
-    let a = route[i];
-    let b = route[j];
-
-    if (i + 1 == j) || (i == 0 && j == n - 1) {
-        let first_idx = if i == 0 && j == n - 1 { j } else { i };
-        let second_idx = if i == 0 && j == n - 1 { i } else { j };
-        let prev = (first_idx as i32 - 1).rem_euclid(n as i32) as usize;
-        let next = (second_idx + 1) % n;
-
-        let old_cost = dist_matrix.get(route[prev], route[first_idx]) + dist_matrix.get(route[second_idx], route[next]);
-        let new_cost = dist_matrix.get(route[prev], route[second_idx]) + dist_matrix.get(route[first_idx], route[next]);
-        new_cost - old_cost
-    } else {
-        let old_cost = dist_matrix.get(route[im1], a) + dist_matrix.get(a, route[ip1])
-            + dist_matrix.get(route[jm1], b) + dist_matrix.get(b, route[jp1]);
-        let new_cost = dist_matrix.get(route[im1], b) + dist_matrix.get(b, route[ip1])
-            + dist_matrix.get(route[jm1], a) + dist_matrix.get(a, route[jp1]);
-        new_cost - old_cost
-    }
-}
 
 fn print_starting(algo_name: &str, data_set: &str, print: bool) {
     if print {
-        println!("\x1b[1;36m[{}] Starting optimization on {} vertices\x1b[0m", algo_name, data_set);
+        println!(
+            "\x1b[1;36m[{}] Starting optimization on {} vertices\x1b[0m",
+            algo_name, data_set
+        );
     }
 }
 
@@ -162,7 +85,15 @@ fn print_progress(tag: &str, print: bool, n: usize, best_distance: i64, i: usize
         let bar_width = 30;
         let filled = (progress as usize * bar_width / 100).min(bar_width);
         let bar = format!("[{}{}]", "=".repeat(filled), " ".repeat(bar_width - filled));
-        print!("\r\x1b[1;34m[{}]\x1b[0m {} {}/{} ({}%) | Best: {}", tag, bar, i + 1, n, progress, best_distance);
+        print!(
+            "\r\x1b[1;34m[{}]\x1b[0m {} {}/{} ({}%) | Best: {}",
+            tag,
+            bar,
+            i + 1,
+            n,
+            progress,
+            best_distance
+        );
         std::io::Write::flush(&mut std::io::stdout()).ok();
     }
 }
@@ -179,22 +110,21 @@ pub trait TspProcedure {
     fn run(&self, data: &tsp::Data, print: bool) -> TspAlgorithmResult;
     fn name(&self) -> &str;
 
-    fn run_multithreaded(&self, data: &tsp::Data, print: bool, n_jobs: usize) -> TspAlgorithmResult 
-        where Self: Clone + Send + Sync + 'static 
-    {        
+    fn run_multithreaded(&self, data: &tsp::Data, print: bool, n_jobs: usize) -> TspAlgorithmResult
+    where
+        Self: Clone + Send + Sync + 'static,
+    {
         print_starting(self.name(), &data.name, print);
 
         let dist_matrix = DistanceMatrix::new(&data.points.points);
         let points = Arc::new(data.points.clone());
         let dist_matrix = Arc::new(dist_matrix.clone());
-        let shared = Arc::new(Mutex::new(
-            SharedProcedureState {
-                total_distance: 0,
-                total_steps: 0,
-                best_distance: i64::MAX,
-                best_solution: data.points.clone(),
-            }
-        ));
+        let shared = Arc::new(Mutex::new(SharedProcedureState {
+            total_distance: 0,
+            total_steps: 0,
+            best_distance: i64::MAX,
+            best_solution: data.points.clone(),
+        }));
 
         let pool = ThreadPool::new(16);
         let (tx, rx) = channel();
@@ -207,7 +137,7 @@ pub trait TspProcedure {
             let algo = algo.clone();
             let shared = shared.clone();
 
-            pool.execute(move ||{
+            pool.execute(move || {
                 let result = algo.algo(&points, &dist_matrix);
                 let mut shared = shared.lock().unwrap();
                 shared.total_distance += result.distance;
@@ -224,7 +154,13 @@ pub trait TspProcedure {
 
         for i in 0..n_jobs {
             rx.recv().expect(&format!("Didn't receive value at {i}"));
-            print_progress(self.name(), print, n_jobs, shared.lock().unwrap().best_distance, i);
+            print_progress(
+                self.name(),
+                print,
+                n_jobs,
+                shared.lock().unwrap().best_distance,
+                i,
+            );
         }
 
         print_complete(self.name(), print);
@@ -297,7 +233,6 @@ impl TspProcedure for LocalSearchZ1 {
         self.run_multithreaded(data, print, 100)
     }
 }
-
 
 #[derive(Clone, Copy)]
 pub struct LocalSearchZ2;
@@ -466,18 +401,23 @@ impl Default for SimulatedAnnealingBase {
 }
 
 impl SimulatedAnnealingBase {
-    pub fn new(initial_temperature: f64, cooling_factor: f64, epoch: usize, no_improve_limit: u32) -> Self {
+    pub fn new(
+        initial_temperature: f64,
+        cooling_factor: f64,
+        epoch: usize,
+        no_improve_limit: u32,
+    ) -> Self {
         Self {
             params: SimulatedAnnealingParams {
                 initial_temperature,
                 cooling_factor,
                 epoch_length: epoch,
                 no_improve_limit,
-            }
+            },
         }
     }
 
-    pub fn random_inversion(rng: &mut dyn  Rng,  n: usize) -> (usize, usize) {
+    pub fn random_inversion(rng: &mut dyn Rng, n: usize) -> (usize, usize) {
         let i = rng.random_range(0..n - 1);
         (i, rng.random_range(i + 1..n))
     }
@@ -489,7 +429,8 @@ impl TspProcedure for SimulatedAnnealingBase {
     }
 
     fn algo(&self, points: &VecPoints, dist_matrix: &DistanceMatrix) -> AlgoSearchResult {
-        let mut route: Vec<usize> = (0..points.points.len()).collect();
+        let mut n_points = points.points.len();
+        let mut route: Vec<usize> = (0..n_points).collect();
         let mut rng = rand::rng();
         route.shuffle(&mut rng);
 
@@ -506,15 +447,15 @@ impl TspProcedure for SimulatedAnnealingBase {
         loop {
             let mut improved = false;
             for _epoch in 0..self.params.epoch_length {
-                let (i, j) = 
-                    SimulatedAnnealingBase::random_inversion(&mut rng, route.len());
+                let (i, j) = SimulatedAnnealingBase::random_inversion(&mut rng, route.len());
                 let delta = calculate_invert_delta(dist_matrix, &route, i, j);
 
-                let accept = if delta < 0 { 
-                    true 
+                let accept = if delta < 0 {
+                    true
                 } else {
                     let boltzman = (-delta as f64 / temperature.max(0.01))
-                        .min(MAX_EXPONENT).exp();
+                        .min(MAX_EXPONENT)
+                        .exp();
                     rng.random::<f64>() < boltzman
                 };
 
@@ -560,82 +501,77 @@ impl TspProcedure for SimulatedAnnealingBase {
     }
 }
 
-
 #[derive(Clone, Copy)]
-pub struct TabuSearchParams {
-    pub tabu_tenure: usize,
+pub struct TabooSearchParams {
+    pub taboo_tenure: fn(usize) -> usize,
     pub max_iterations: usize,
     pub no_improve_limit: u64,
 }
 
-impl Default for TabuSearchParams {
+impl Default for TabooSearchParams {
     fn default() -> Self {
         Self {
-            tabu_tenure: 15, // Will be set to n/2 in algo
+            taboo_tenure: |n| n.isqrt(), // Will be set to n/2 in algo
             max_iterations: 70,
             no_improve_limit: 5,
         }
     }
 }
 
-// Tabu Search - search with memory of recent moves
+// Taboo Search - search with memory of recent moves
 #[derive(Clone)]
-pub struct TabuSearchBase {
-    pub params: TabuSearchParams,
+pub struct TabooSearchBase {
+    pub params: TabooSearchParams,
 }
 
-impl Default for TabuSearchBase {
+impl Default for TabooSearchBase {
     fn default() -> Self {
         Self {
-            params: TabuSearchParams::default(),
+            params: TabooSearchParams::default(),
         }
     }
 }
 
-impl TabuSearchBase {
-    pub fn new(tabu_tenure: usize, max_iterations: usize, no_improve_limit: u64) -> Self {
+impl TabooSearchBase {
+    pub fn new(
+        taboo_tenure: fn(usize) -> usize,
+        max_iterations: usize,
+        no_improve_limit: u64,
+    ) -> Self {
         Self {
-            params: TabuSearchParams {
-                tabu_tenure,
+            params: TabooSearchParams {
+                taboo_tenure,
                 max_iterations,
                 no_improve_limit,
-            }
+            },
         }
     }
 }
 
-impl TspProcedure for TabuSearchBase {
+impl TspProcedure for TabooSearchBase {
     fn name(&self) -> &str {
-        "TabuSearch"
+        "TabooSearch"
     }
 
     fn algo(&self, points: &VecPoints, dist_matrix: &DistanceMatrix) -> AlgoSearchResult {
-        let mut route: Vec<usize> = (0..points.points.len()).collect();
-        let mut rng = rand::rng();
-        route.shuffle(&mut rng);
-
+        // Step 1: generate initial route
+        let n = points.points.len();
+        let mut route = rand_tour(points);
         let mut len = dist_matrix.calculate_tour_length(&route);
         let mut best_len = len;
         let mut best_route = route.clone();
         let mut steps = 0u64;
         let mut no_improve_count = 0u64;
-
-        // Tabu list: FIFO queue storing (i, j) move pairs
-        let mut tabu_list: Vec<(usize, usize)> = Vec::with_capacity(self.params.tabu_tenure);
-        let actual_tenure = if self.params.tabu_tenure > 0 {
-            self.params.tabu_tenure
-        } else {
-            (points.points.len() / 2).max(5)
-        };
-
-        let n = route.len();
+        let mut taboo_list = TabooList::new((self.params.taboo_tenure)(n));
         let mut iteration = 0;
 
-        while iteration < self.params.max_iterations && no_improve_count < self.params.no_improve_limit {
+        while iteration < self.params.max_iterations
+            && no_improve_count < self.params.no_improve_limit
+        {
             let mut best_move_delta = i64::MAX;
             let mut best_move = (0, 1);
 
-            // Search all neighbors
+            // Step 2: Find best possible move in the whole search space
             for i in 0..(n - 1) {
                 for j in (i + 1)..n {
                     if i == 0 && j == n - 1 {
@@ -645,31 +581,27 @@ impl TspProcedure for TabuSearchBase {
                     let delta = calculate_invert_delta(dist_matrix, &route, i, j);
                     let new_len = len + delta;
 
-                    // Check if this move is tabu
-                    let is_tabu = tabu_list.contains(&(i, j)) || tabu_list.contains(&(j, i));
+                    // Check if this move is taboo
+                    let is_taboo = taboo_list.find((i, j));
 
-                    // Accept if: not tabu, OR tabu but improves global best (aspiration)
-                    let accept = !is_tabu || (new_len < best_len);
+                    // Step 2.1: If the route is not in the taboo or is just better accept it
+                    let accept = !is_taboo || (new_len < best_len);
 
                     if accept && delta < best_move_delta {
                         best_move_delta = delta;
                         best_move = (i, j);
-                        let _ = is_tabu && new_len < best_len;
                     }
                 }
             }
 
-            // Apply best move
+            // Step 3: Apply best possible move
             if best_move_delta < i64::MAX {
                 apply_invert(&mut route, best_move.0, best_move.1);
                 len += best_move_delta;
                 steps += 1;
 
-                // Update tabu list (FIFO)
-                tabu_list.push(best_move);
-                if tabu_list.len() > actual_tenure {
-                    tabu_list.remove(0);
-                }
+                // Update taboo list (FIFO)
+                taboo_list.insert(best_move);
 
                 // Check if improved global best
                 if len < best_len {

@@ -7,28 +7,28 @@ następujące zadania:
     (c) i minimalną wartość dla tych 1000 losowań
 */
 
-use std::{error::Error, fs, path};
-use std::path::PathBuf;
+use plotters::prelude::*;
 use rand::Rng;
 use rand::seq::SliceRandom;
-use serde::{Serialize};
-use plotters::prelude::*;
+use serde::Serialize;
+use std::path::PathBuf;
+use std::{error::Error, fs, path};
 
 #[derive(Debug)]
 pub enum EdgeWeightType {
-    Eucl2d
+    Eucl2d,
 }
 
 impl From<String> for EdgeWeightType {
     fn from(value: String) -> Self {
         match value {
-            _ => Self::Eucl2d
+            _ => Self::Eucl2d,
         }
     }
 }
 
 #[derive(Debug)]
-pub struct Data {    
+pub struct Data {
     // Specified in the files
     pub name: String,
     pub tsp_type: String,
@@ -52,7 +52,10 @@ pub fn point_distance(p1: (f64, f64), p2: (f64, f64)) -> f64 {
 impl VecPoints {
     #[must_use]
     pub fn new() -> Self {
-        Self { points: Vec::new(), name: String::new() }
+        Self {
+            points: Vec::new(),
+            name: String::new(),
+        }
     }
 
     pub fn calc_distance(&self) -> f64 {
@@ -68,7 +71,10 @@ impl VecPoints {
     pub fn permutation(&self, rng: &mut dyn Rng) -> Self {
         let mut points = self.points.clone();
         points.shuffle(rng);
-        Self { points, name: self.name.clone() }
+        Self {
+            points,
+            name: self.name.clone(),
+        }
     }
 
     pub fn set_name(&mut self, name: String) {
@@ -123,12 +129,10 @@ impl VecPoints {
         let root = BitMapBackend::new(&output_path, (1000, 800)).into_drawing_area();
         root.fill(&WHITE)?;
 
-        let mut chart = ChartBuilder::on(&root)
-            .margin(20)
-            .build_cartesian_2d(
-                (min_x - x_padding)..(max_x + x_padding),
-                (min_y - y_padding)..(max_y + y_padding),
-            )?;
+        let mut chart = ChartBuilder::on(&root).margin(20).build_cartesian_2d(
+            (min_x - x_padding)..(max_x + x_padding),
+            (min_y - y_padding)..(max_y + y_padding),
+        )?;
 
         let mut cycle_points = self.points.clone();
         if cycle_points.len() > 1 {
@@ -137,25 +141,27 @@ impl VecPoints {
 
         chart.draw_series(LineSeries::new(cycle_points, &BLUE.mix(0.8)))?;
 
-        chart.draw_series(self.points.iter().map(|(x, y)| Circle::new((*x, *y), 5, RED.filled())))?;
+        chart.draw_series(
+            self.points
+                .iter()
+                .map(|(x, y)| Circle::new((*x, *y), 5, RED.filled())),
+        )?;
 
         root.present()?;
         Ok(result_path)
     }
 }
 
-
 const DATA_PATH: &str = "./data/";
 const OUTPUT_PATH: &str = "./results/";
 
 fn load_files(file_names: &[&str]) -> Vec<String> {
-    
     let mut files = Vec::new();
     let base_path = path::absolute(PathBuf::from(DATA_PATH)).unwrap();
 
     for file in file_names.iter() {
         let file_path = base_path.join(*file);
-        
+
         let contents = fs::read_to_string(&file_path)
             .expect(format!("Couldn't read file: {}", file_path.to_string_lossy()).as_str());
         files.push(contents);
@@ -165,38 +171,43 @@ fn load_files(file_names: &[&str]) -> Vec<String> {
 }
 
 fn parse_file(file: &String) -> Data {
-    let mut data: Data = Data { 
-        name: String::new(), tsp_type: String::new(), 
-        dimension: 0, edge_weight_type: EdgeWeightType::Eucl2d, 
-        points: VecPoints::new()
+    let mut data: Data = Data {
+        name: String::new(),
+        tsp_type: String::new(),
+        dimension: 0,
+        edge_weight_type: EdgeWeightType::Eucl2d,
+        points: VecPoints::new(),
     };
 
-    const TOKEN_LIST: [&str; 5] = [
-        "NAME", "COMMENT", "TYPE", "DIMENSION", "EDGE_WEIGHT_TYPE",
-    ];
+    const TOKEN_LIST: [&str; 5] = ["NAME", "COMMENT", "TYPE", "DIMENSION", "EDGE_WEIGHT_TYPE"];
 
     const POINTS_SECTION: &str = "NODE_COORD_SECTION";
 
     for line in file.split('\n') {
         let tokens: Vec<&str> = line.split(' ').collect();
 
-        let token = tokens[0].trim_end_matches(|x: char| {
-            x == ':' || x.is_whitespace()
-        });
+        let token = tokens[0].trim_end_matches(|x: char| x == ':' || x.is_whitespace());
 
         if TOKEN_LIST.contains(&token) {
-            let value_token = if tokens[1] == ":" {tokens[2].trim()} else {tokens[1].trim()};
+            let value_token = if tokens[1] == ":" {
+                tokens[2].trim()
+            } else {
+                tokens[1].trim()
+            };
 
             match token {
                 "NAME" => data.name = value_token.to_string(),
                 "TYPE" => data.tsp_type = value_token.to_string(),
                 "DIMENSION" => data.dimension = value_token.parse::<i32>().unwrap(),
-                "EDGE_WEIGHT_TYPE" => data.edge_weight_type = EdgeWeightType::from(value_token.to_string()),
+                "EDGE_WEIGHT_TYPE" => {
+                    data.edge_weight_type = EdgeWeightType::from(value_token.to_string())
+                }
                 _ => {}
             }
         } else if token.contains(POINTS_SECTION) {
             for point_line in file.split(POINTS_SECTION).nth(1).unwrap().split('\n') {
-                let point_tokens: Vec<&str> = point_line.split(' ').filter(|s| !s.is_empty()).collect();
+                let point_tokens: Vec<&str> =
+                    point_line.split(' ').filter(|s| !s.is_empty()).collect();
                 if point_tokens.len() < 3 {
                     continue;
                 }
@@ -222,3 +233,129 @@ pub fn load_data(file_names: &[&str]) -> Vec<Data> {
     data
 }
 
+pub fn rand_tour(points: &VecPoints) -> Vec<usize> {
+    let mut route: Vec<usize> = (0..points.points.len()).collect();
+    let mut rng = rand::rng();
+    route.shuffle(&mut rng);
+    route
+}
+
+pub fn rand_tours(points: &VecPoints, n_tours: i32) -> Vec<Vec<usize>> {
+    let mut rng = rand::rng();
+    (0..n_tours)
+        .map(|_| {
+            let mut v: Vec<usize> = (0..points.points.len()).collect();
+            v.shuffle(&mut rng);
+            v
+        })
+        .collect()
+}
+
+#[derive(Clone)]
+pub struct DistanceMatrix {
+    matrix: Vec<Vec<i64>>,
+}
+
+impl DistanceMatrix {
+    pub fn new(points: &[(f64, f64)]) -> Self {
+        let n = points.len();
+        let mut matrix = vec![vec![0i64; n]; n];
+
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let dist = point_distance(points[i], points[j]) as i64;
+                matrix[i][j] = dist;
+                matrix[j][i] = dist;
+            }
+        }
+
+        DistanceMatrix { matrix }
+    }
+
+    pub fn get(&self, i: usize, j: usize) -> i64 {
+        self.matrix[i][j]
+    }
+
+    pub fn calculate_tour_length(&self, route: &[usize]) -> i64 {
+        let n = route.len();
+        let mut sum = 0i64;
+        for i in 1..n {
+            sum += self.get(route[i - 1], route[i]);
+        }
+        sum += self.get(route[n - 1], route[0]);
+        sum
+    }
+}
+
+// Invert move: reverses the sequence from index i to j
+pub fn apply_invert(route: &mut [usize], i: usize, j: usize) {
+    let mut left = i;
+    let mut right = j;
+    while left < right {
+        route.swap(left, right);
+        left += 1;
+        right -= 1;
+    }
+}
+
+// Calculate the delta (cost change) of inverting from i to j
+pub fn calculate_invert_delta(
+    dist_matrix: &DistanceMatrix,
+    route: &[usize],
+    i: usize,
+    j: usize,
+) -> i64 {
+    let n = route.len();
+    let im1 = (i as i32 - 1).rem_euclid(n as i32) as usize;
+    let jp1 = (j + 1) % n;
+
+    let old_cost = dist_matrix.get(route[im1], route[i]) + dist_matrix.get(route[j], route[jp1]);
+    let new_cost = dist_matrix.get(route[im1], route[j]) + dist_matrix.get(route[i], route[jp1]);
+
+    new_cost - old_cost
+}
+
+// Transpose move: swaps elements at positions i and j
+pub fn apply_transpose(route: &mut [usize], i: usize, j: usize) {
+    route.swap(i, j);
+}
+
+// Calculate the delta (cost change) of transposing positions i and j
+pub fn calculate_transpose_delta(
+    dist_matrix: &DistanceMatrix,
+    route: &[usize],
+    i: usize,
+    j: usize,
+) -> i64 {
+    let n = route.len();
+    let im1 = (i as i32 - 1).rem_euclid(n as i32) as usize;
+    let ip1 = (i + 1) % n;
+    let jm1 = (j as i32 - 1).rem_euclid(n as i32) as usize;
+    let jp1 = (j + 1) % n;
+
+    let a = route[i];
+    let b = route[j];
+
+    if (i + 1 == j) || (i == 0 && j == n - 1) {
+        let first_idx = if i == 0 && j == n - 1 { j } else { i };
+        let second_idx = if i == 0 && j == n - 1 { i } else { j };
+        let prev = (first_idx as i32 - 1).rem_euclid(n as i32) as usize;
+        let next = (second_idx + 1) % n;
+
+        let old_cost = dist_matrix.get(route[prev], route[first_idx])
+            + dist_matrix.get(route[second_idx], route[next]);
+        let new_cost = dist_matrix.get(route[prev], route[second_idx])
+            + dist_matrix.get(route[first_idx], route[next]);
+        new_cost - old_cost
+    } else {
+        let old_cost = dist_matrix.get(route[im1], a)
+            + dist_matrix.get(a, route[ip1])
+            + dist_matrix.get(route[jm1], b)
+            + dist_matrix.get(b, route[jp1]);
+        let new_cost = dist_matrix.get(route[im1], b)
+            + dist_matrix.get(b, route[ip1])
+            + dist_matrix.get(route[jm1], a)
+            + dist_matrix.get(a, route[jp1]);
+        new_cost - old_cost
+    }
+}
