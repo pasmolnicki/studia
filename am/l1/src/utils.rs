@@ -1,3 +1,4 @@
+use rand::{Rng, RngExt};
 use std::collections::BTreeSet;
 
 pub struct TabooList {
@@ -25,4 +26,9 @@ impl TabooList {
     pub fn find(&self, v: (usize, usize)) -> bool {
         self.present_values.contains(&v) || self.present_values.contains(&(v.1, v.0))
     }
+}
+
+pub fn random_inversion(rng: &mut dyn Rng, n: usize) -> (usize, usize) {
+    let i = rng.random_range(0..n - 1);
+    (i, rng.random_range(i + 1..n))
 }
