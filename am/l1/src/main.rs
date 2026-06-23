@@ -9,11 +9,12 @@ use l1::{
     tsp::{self, Data},
 };
 use l1::{
-    ga::{GAParams, GeneticAlgorithm},
+    ga::{CrossoverType, GAParams, GeneticAlgorithm},
     tsp::{DistanceMatrix, load_data},
 };
 use plotters::data;
 use std::{
+    collections::BTreeMap,
     error::Error,
     fs::File,
     io::Write,
@@ -312,6 +313,98 @@ fn optimize_tabu_search() -> Result<(), Box<dyn Error>> {
 }
 
 #[allow(dead_code)]
+fn optimize_ga() -> Result<(), Box<dyn Error>> {
+    let data = load_below_1k_data_sets();
+
+    let n_population: [(fn(usize) -> usize, &'static str); 4] = [
+        (|n| n.isqrt(), "n -> sqrt(n)"),
+        (|n| (1.2 * n.isqrt() as f64) as usize, "n -> 1.2 sqrt(n)"),
+        (|n| (1.25 * n.isqrt() as f64) as usize, "n -> 1.25 sqrt(n)"),
+        (|n| (1.3 * n.isqrt() as f64) as usize, "n -> 1.3 sqrt(n)"),
+        // (|n| n / 2, "n -> n/2"),
+        // (|n| n, "n -> n"),
+        // (|n| 2 * n, "n -> 2n"),
+    ];
+    let n_generation: [(fn(usize) -> usize, &'static str); 1] = [
+        (|n| n.isqrt(), "n -> sqrt(n)"),
+        // (|n| n / 2, "n -> n/2"),
+        // (|n| n, "n -> n"),
+        // (|n| 2 * n, "n -> 2n"),
+    ];
+    let mutation_rates = [0.05, 0.1, 0.2, 0.25, 0.3];
+    let crossover_types = [CrossoverType::OX(), CrossoverType::PMX()];
+    let crossover_rates = [0.4, 0.6, 0.7, 0.8];
+    let csv_path = format!("results/ga_parameter_tuning.csv");
+    let mut wtr = csv::Writer::from_path(&csv_path)?;
+    wtr.write_record(&[
+        "population",
+        "generation",
+        "mutation_rate",
+        "crossover_rate",
+        "crossover_type",
+        "avg_distance",
+    ])?;
+
+    let mut best_params = (
+        n_population[0],
+        n_generation[0],
+        mutation_rates[0],
+        crossover_rates[0],
+        crossover_types[0],
+    );
+    let mut best_mean_distance = f64::MAX;
+
+    for &n_gen in &n_generation {
+        for &n_pop in &n_population {
+            for &mut_rate in &mutation_rates {
+                for &cov_rate in &crossover_rates {
+                    for &cov_type in &crossover_types {
+                        let ga = GeneticAlgorithm::new(GAParams::new(
+                            n_pop.0, n_gen.0, cov_rate, cov_type, mut_rate,
+                        ));
+                        let mut total_distance = 0.0;
+                        for d in data.iter() {
+                            let res = ga.run(d, false);
+                            total_distance += res.mean_distance as f64;
+                        }
+                        let avg_distance = total_distance / (data.len() as f64);
+                        println!(
+                            "n_pop: {}, n_gen: {}, mut_rate: {}, cov_rate: {}, cov_type: {:?} => AvgDist: {}",
+                            n_pop.1, n_gen.1, mut_rate, cov_rate, cov_type, avg_distance
+                        );
+                        if avg_distance < best_mean_distance {
+                            best_mean_distance = avg_distance;
+                            best_params = (n_pop, n_gen, mut_rate, cov_rate, cov_type);
+                        }
+                        wtr.write_record(&[
+                            n_pop.1.to_string(),
+                            n_gen.1.to_string(),
+                            mut_rate.to_string(),
+                            cov_rate.to_string(),
+                            cov_type.into(),
+                            avg_distance.to_string(),
+                        ])?;
+                    }
+                }
+            }
+        }
+    }
+
+    wtr.flush()?;
+    println!(
+        "\n Best params: n_pop: {}, n_gen: {}, mut_rate: {}, cov_rate: {}, cov_type: {:?} => AvgDist: {}",
+        best_params.0.1,
+        best_params.1.1,
+        best_params.2,
+        best_params.3,
+        best_params.4,
+        best_mean_distance
+    );
+
+    Ok(())
+}
+
+#[allow(dead_code)]
 fn run_reapted_experiment(
     algo: &dyn TspProcedure,
     n: i32,
@@ -352,7 +445,10 @@ const GENETIC_ALGO: &str = "ga";
 #[allow(dead_code)]
 fn run_full_experiment() -> Result<(), Box<dyn Error>> {
     // These are the TSP problem instances to solve
-    let data_list = load_small_data_sets();
+    let data_list = 
+        //load_small_data_sets();
+    // load_below_1k_data_sets();
+    load_all_data();
     // load_lagrge_data_sets();
     // tsp::load_data(&["ca4663.tsp", "tz6117.tsp", "eg7146.tsp", "ei8246.tsp"]);
 
@@ -369,7 +465,7 @@ fn run_full_experiment() -> Result<(), Box<dyn Error>> {
         )?;*/
         // run_experiment(&TabooSearchBase::default(), data, TABU_SEARCH)?;
         run_experiment(
-            &GeneticAlgorithm::new(GAParams::new(|n| n, |n| 2 * n, 0.8, 0.2)),
+            &GeneticAlgorithm::new(GAParams::default()),
             data,
             GENETIC_ALGO,
         )?;
@@ -469,6 +565,7 @@ fn generate_md_tables() {
 
 fn main() -> Result<(), Box<dyn Error>> {
     run_full_experiment()?;
+    // optimize_ga()?;
     // optimize_simulated_annealing_base()?;
     // optimize_taboo_list();
     // optimize_tabu_search()?;

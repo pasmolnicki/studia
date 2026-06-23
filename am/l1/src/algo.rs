@@ -20,6 +20,7 @@ pub struct TspAlgorithmResult {
     pub mean_distance: i64,
     pub mean_n_steps: i64,
     pub best_solution: tsp::VecPoints,
+    pub best_distance: i64,
 }
 
 impl Default for TspAlgorithmResult {
@@ -29,6 +30,7 @@ impl Default for TspAlgorithmResult {
             mean_distance: i64::MAX,
             mean_n_steps: i64::MAX,
             best_solution: VecPoints::new(),
+            best_distance: i64::MAX,
         }
     }
 }
@@ -138,6 +140,7 @@ pub trait TspProcedure {
             mean_distance: shared.total_distance / n_jobs as i64,
             mean_n_steps: (shared.total_steps / n_jobs as u64) as i64,
             best_solution: shared.best_solution.clone(),
+            best_distance: shared.best_distance,
         }
     }
 }

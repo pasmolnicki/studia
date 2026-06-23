@@ -1,11 +1,12 @@
 use crate::{
     algo::{AlgoSearchResult, TspProcedure},
+    ga::CrossoverType::{OX, PMX},
     tsp::{DistanceMatrix, VecPoints, rand_tours},
     utils::print_progress,
 };
 use rand::{Rng, RngExt};
 
-fn random_offspring(
+fn ox_offspring(
     dm: &DistanceMatrix,
     parent1: &GaIndividual,
     parent2: &GaIndividual,
@@ -36,14 +37,55 @@ fn random_offspring(
     GaIndividual(offspring, len)
 }
 
+fn ox_crossover(
+    rng: &mut dyn Rng,
+    dm: &DistanceMatrix,
+    parent1: &GaIndividual,
+    parent2: &GaIndividual,
+) -> (GaIndividual, GaIndividual) {
+    (
+        ox_offspring(dm, parent1, parent2, rng.random_range(0..parent1.0.len())),
+        ox_offspring(dm, parent2, parent1, rng.random_range(0..parent1.0.len())),
+    )
+}
+
+fn pmx_crossover(
+    rng: &mut dyn Rng,
+    dm: &DistanceMatrix,
+    parent1: &GaIndividual,
+    parent2: &GaIndividual,
+) -> (GaIndividual, GaIndividual) {
+    (
+        ox_offspring(dm, parent1, parent2, rng.random_range(0..parent1.0.len())),
+        ox_offspring(dm, parent2, parent1, rng.random_range(0..parent1.0.len())),
+    )
+}
+
+#[derive(Clone, Copy, Debug)]
+#[repr(i32)]
+pub enum CrossoverType {
+    OX(),
+    PMX(),
+}
+
+impl Into<String> for CrossoverType {
+    fn into(self) -> String {
+        match self {
+            OX() => "OX".to_string(),
+            PMX() => "PMX".to_string(),
+        }
+    }
+}
+
 #[derive(Clone)]
-struct GaIndividual(Vec<usize>, i64);
+pub struct GaIndividual(Vec<usize>, i64);
 type GaPopulation = Vec<GaIndividual>;
 
 #[derive(Clone, Copy)]
 pub struct GAParams {
     n_population: fn(usize) -> usize,
     crossover_rate: f64,
+    crossover_type: CrossoverType,
     mutation_rate: f64,
     n_generations: fn(usize) -> usize,
 }
@@ -51,10 +93,11 @@ pub struct GAParams {
 impl Default for GAParams {
     fn default() -> Self {
         Self {
-            n_population: |_| 100,
-            crossover_rate: 0.8,
-            mutation_rate: 0.05,
-            n_generations: |_| 50,
+            n_population: |n| n.isqrt(),
+            crossover_rate: 0.6,
+            crossover_type: OX(),
+            mutation_rate: 0.2,
+            n_generations: |n| (1.2 * n.isqrt() as f64) as usize,
         }
     }
 }
@@ -64,10 +107,12 @@ impl GAParams {
         n_population: fn(usize) -> usize,
         n_generations: fn(usize) -> usize,
         crossover_rate: f64,
+        crossover_type: CrossoverType,
         mutation_rate: f64,
     ) -> Self {
         Self {
             n_population,
+            crossover_type,
             crossover_rate,
             mutation_rate,
             n_generations,
@@ -82,7 +127,7 @@ pub struct GeneticAlgorithm {
 
 impl TspProcedure for GeneticAlgorithm {
     fn run(&self, data: &crate::tsp::Data, print: bool) -> crate::algo::TspAlgorithmResult {
-        self.run_multithreaded(data, print, 16)
+        self.run_multithreaded(data, print, 100)
     }
 
     fn algo(
@@ -104,7 +149,7 @@ impl TspProcedure for GeneticAlgorithm {
 
         for i in 0..n_genrations {
             population = self.step(&population, dm);
-            print_progress("GA", true, n_genrations, population[0].1, i);
+            // print_progress("GA", true, n_genrations, population[0].1, i);
         }
 
         let best_ind = &population[0];
@@ -129,15 +174,6 @@ impl GeneticAlgorithm {
         Self { params }
     }
 
-    fn fitness(&self, population: &GaPopulation) -> Vec<f64> {
-        let max = population.iter().map(|ind| ind.1).max().unwrap();
-        let sum = population.iter().map(|v| max - v.1).sum::<i64>();
-        population
-            .iter()
-            .map(|ind| ((max - ind.1) as f64) / (sum as f64))
-            .collect()
-    }
-
     fn crossover(
         &self,
         rng: &mut dyn Rng,
@@ -145,10 +181,10 @@ impl GeneticAlgorithm {
         parent1: &GaIndividual,
         parent2: &GaIndividual,
     ) -> (GaIndividual, GaIndividual) {
-        (
-            random_offspring(dm, parent1, parent2, rng.random_range(0..parent1.0.len())),
-            random_offspring(dm, parent2, parent1, rng.random_range(0..parent1.0.len())),
-        )
+        match self.params.crossover_type {
+            OX() => ox_crossover(rng, dm, parent1, parent2),
+            PMX() => pmx_crossover(rng, dm, parent1, parent2),
+        }
     }
     /// Run one full pass of 2-opt improvement. Returns true if any improvement was made.
     fn two_opt_pass(&self, individual: &mut GaIndividual, dm: &DistanceMatrix) -> bool {

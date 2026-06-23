@@ -1,0 +1,161 @@
+population,generation,mutation_rate,crossover_rate,crossover_type,avg_distance
+n -> sqrt(n),n -> sqrt(n),0.05,0.4,OX,48102
+n -> sqrt(n),n -> sqrt(n),0.05,0.4,PMX,48045.4
+n -> sqrt(n),n -> sqrt(n),0.05,0.6,OX,48198
+n -> sqrt(n),n -> sqrt(n),0.05,0.6,PMX,48198.6
+n -> sqrt(n),n -> sqrt(n),0.05,0.7,OX,48065.8
+n -> sqrt(n),n -> sqrt(n),0.05,0.7,PMX,48190.4
+n -> sqrt(n),n -> sqrt(n),0.05,0.8,OX,48070.4
+n -> sqrt(n),n -> sqrt(n),0.05,0.8,PMX,48099.8
+n -> sqrt(n),n -> sqrt(n),0.1,0.4,OX,48156.6
+n -> sqrt(n),n -> sqrt(n),0.1,0.4,PMX,48116.6
+n -> sqrt(n),n -> sqrt(n),0.1,0.6,OX,48121.2
+n -> sqrt(n),n -> sqrt(n),0.1,0.6,PMX,47983
+n -> sqrt(n),n -> sqrt(n),0.1,0.7,OX,48182.4
+n -> sqrt(n),n -> sqrt(n),0.1,0.7,PMX,48122.4
+n -> sqrt(n),n -> sqrt(n),0.1,0.8,OX,47889
+n -> sqrt(n),n -> sqrt(n),0.1,0.8,PMX,48043.2
+n -> sqrt(n),n -> sqrt(n),0.2,0.4,OX,48210.2
+n -> sqrt(n),n -> sqrt(n),0.2,0.4,PMX,48158.2
+n -> sqrt(n),n -> sqrt(n),0.2,0.6,OX,48081
+n -> sqrt(n),n -> sqrt(n),0.2,0.6,PMX,47807.2
+n -> sqrt(n),n -> sqrt(n),0.2,0.7,OX,47886.6
+n -> sqrt(n),n -> sqrt(n),0.2,0.7,PMX,48021.8
+n -> sqrt(n),n -> sqrt(n),0.2,0.8,OX,48105
+n -> sqrt(n),n -> sqrt(n),0.2,0.8,PMX,48258.2
+n -> sqrt(n),n -> sqrt(n),0.25,0.4,OX,48290.6
+n -> sqrt(n),n -> sqrt(n),0.25,0.4,PMX,48178.2
+n -> sqrt(n),n -> sqrt(n),0.25,0.6,OX,48049.2
+n -> sqrt(n),n -> sqrt(n),0.25,0.6,PMX,48105.2
+n -> sqrt(n),n -> sqrt(n),0.25,0.7,OX,48046.4
+n -> sqrt(n),n -> sqrt(n),0.25,0.7,PMX,47996
+n -> sqrt(n),n -> sqrt(n),0.25,0.8,OX,47942
+n -> sqrt(n),n -> sqrt(n),0.25,0.8,PMX,48108.8
+n -> sqrt(n),n -> sqrt(n),0.3,0.4,OX,47964.6
+n -> sqrt(n),n -> sqrt(n),0.3,0.4,PMX,48089.6
+n -> sqrt(n),n -> sqrt(n),0.3,0.6,OX,47946.6
+n -> sqrt(n),n -> sqrt(n),0.3,0.6,PMX,48108
+n -> sqrt(n),n -> sqrt(n),0.3,0.7,OX,48105.8
+n -> sqrt(n),n -> sqrt(n),0.3,0.7,PMX,48072.4
+n -> sqrt(n),n -> sqrt(n),0.3,0.8,OX,48083.2
+n -> sqrt(n),n -> sqrt(n),0.3,0.8,PMX,48156.2
+n -> 1.2 sqrt(n),n -> sqrt(n),0.05,0.4,OX,48092.2
+n -> 1.2 sqrt(n),n -> sqrt(n),0.05,0.4,PMX,48163.6
+n -> 1.2 sqrt(n),n -> sqrt(n),0.05,0.6,OX,48059.8
+n -> 1.2 sqrt(n),n -> sqrt(n),0.05,0.6,PMX,48131.4
+n -> 1.2 sqrt(n),n -> sqrt(n),0.05,0.7,OX,48113.4
+n -> 1.2 sqrt(n),n -> sqrt(n),0.05,0.7,PMX,48133
+n -> 1.2 sqrt(n),n -> sqrt(n),0.05,0.8,OX,48024.2
+n -> 1.2 sqrt(n),n -> sqrt(n),0.05,0.8,PMX,48034.8
+n -> 1.2 sqrt(n),n -> sqrt(n),0.1,0.4,OX,48221.8
+n -> 1.2 sqrt(n),n -> sqrt(n),0.1,0.4,PMX,48173.2
+n -> 1.2 sqrt(n),n -> sqrt(n),0.1,0.6,OX,48050.8
+n -> 1.2 sqrt(n),n -> sqrt(n),0.1,0.6,PMX,48015.4
+n -> 1.2 sqrt(n),n -> sqrt(n),0.1,0.7,OX,48156.6
+n -> 1.2 sqrt(n),n -> sqrt(n),0.1,0.7,PMX,48268.2
+n -> 1.2 sqrt(n),n -> sqrt(n),0.1,0.8,OX,48159.4
+n -> 1.2 sqrt(n),n -> sqrt(n),0.1,0.8,PMX,48061.2
+n -> 1.2 sqrt(n),n -> sqrt(n),0.2,0.4,OX,47941.4
+n -> 1.2 sqrt(n),n -> sqrt(n),0.2,0.4,PMX,48147.8
+n -> 1.2 sqrt(n),n -> sqrt(n),0.2,0.6,OX,47977
+n -> 1.2 sqrt(n),n -> sqrt(n),0.2,0.6,PMX,48082
+n -> 1.2 sqrt(n),n -> sqrt(n),0.2,0.7,OX,48053.2
+n -> 1.2 sqrt(n),n -> sqrt(n),0.2,0.7,PMX,48213
+n -> 1.2 sqrt(n),n -> sqrt(n),0.2,0.8,OX,48100.4
+n -> 1.2 sqrt(n),n -> sqrt(n),0.2,0.8,PMX,48144
+n -> 1.2 sqrt(n),n -> sqrt(n),0.25,0.4,OX,47954.6
+n -> 1.2 sqrt(n),n -> sqrt(n),0.25,0.4,PMX,48072.4
+n -> 1.2 sqrt(n),n -> sqrt(n),0.25,0.6,OX,48079
+n -> 1.2 sqrt(n),n -> sqrt(n),0.25,0.6,PMX,48026.4
+n -> 1.2 sqrt(n),n -> sqrt(n),0.25,0.7,OX,47931
+n -> 1.2 sqrt(n),n -> sqrt(n),0.25,0.7,PMX,48032.2
+n -> 1.2 sqrt(n),n -> sqrt(n),0.25,0.8,OX,48001.2
+n -> 1.2 sqrt(n),n -> sqrt(n),0.25,0.8,PMX,47925.2
+n -> 1.2 sqrt(n),n -> sqrt(n),0.3,0.4,OX,48079.8
+n -> 1.2 sqrt(n),n -> sqrt(n),0.3,0.4,PMX,47938.6
+n -> 1.2 sqrt(n),n -> sqrt(n),0.3,0.6,OX,48177.4
+n -> 1.2 sqrt(n),n -> sqrt(n),0.3,0.6,PMX,48102.2
+n -> 1.2 sqrt(n),n -> sqrt(n),0.3,0.7,OX,48046.2
+n -> 1.2 sqrt(n),n -> sqrt(n),0.3,0.7,PMX,48035.8
+n -> 1.2 sqrt(n),n -> sqrt(n),0.3,0.8,OX,48169.8
+n -> 1.2 sqrt(n),n -> sqrt(n),0.3,0.8,PMX,48117.4
+n -> 1.25 sqrt(n),n -> sqrt(n),0.05,0.4,OX,48101
+n -> 1.25 sqrt(n),n -> sqrt(n),0.05,0.4,PMX,48041
+n -> 1.25 sqrt(n),n -> sqrt(n),0.05,0.6,OX,48027.2
+n -> 1.25 sqrt(n),n -> sqrt(n),0.05,0.6,PMX,48128.2
+n -> 1.25 sqrt(n),n -> sqrt(n),0.05,0.7,OX,48072.2
+n -> 1.25 sqrt(n),n -> sqrt(n),0.05,0.7,PMX,47984.4
+n -> 1.25 sqrt(n),n -> sqrt(n),0.05,0.8,OX,47997.8
+n -> 1.25 sqrt(n),n -> sqrt(n),0.05,0.8,PMX,48214.4
+n -> 1.25 sqrt(n),n -> sqrt(n),0.1,0.4,OX,48083.4
+n -> 1.25 sqrt(n),n -> sqrt(n),0.1,0.4,PMX,47983.6
+n -> 1.25 sqrt(n),n -> sqrt(n),0.1,0.6,OX,48182.6
+n -> 1.25 sqrt(n),n -> sqrt(n),0.1,0.6,PMX,48048
+n -> 1.25 sqrt(n),n -> sqrt(n),0.1,0.7,OX,47962.2
+n -> 1.25 sqrt(n),n -> sqrt(n),0.1,0.7,PMX,48168
+n -> 1.25 sqrt(n),n -> sqrt(n),0.1,0.8,OX,48076.6
+n -> 1.25 sqrt(n),n -> sqrt(n),0.1,0.8,PMX,48056
+n -> 1.25 sqrt(n),n -> sqrt(n),0.2,0.4,OX,48010
+n -> 1.25 sqrt(n),n -> sqrt(n),0.2,0.4,PMX,48151.4
+n -> 1.25 sqrt(n),n -> sqrt(n),0.2,0.6,OX,48044.8
+n -> 1.25 sqrt(n),n -> sqrt(n),0.2,0.6,PMX,48002.6
+n -> 1.25 sqrt(n),n -> sqrt(n),0.2,0.7,OX,48111.4
+n -> 1.25 sqrt(n),n -> sqrt(n),0.2,0.7,PMX,48142.6
+n -> 1.25 sqrt(n),n -> sqrt(n),0.2,0.8,OX,48349
+n -> 1.25 sqrt(n),n -> sqrt(n),0.2,0.8,PMX,48030.8
+n -> 1.25 sqrt(n),n -> sqrt(n),0.25,0.4,OX,48088.4
+n -> 1.25 sqrt(n),n -> sqrt(n),0.25,0.4,PMX,48150.8
+n -> 1.25 sqrt(n),n -> sqrt(n),0.25,0.6,OX,48130.8
+n -> 1.25 sqrt(n),n -> sqrt(n),0.25,0.6,PMX,48090.4
+n -> 1.25 sqrt(n),n -> sqrt(n),0.25,0.7,OX,48206.4
+n -> 1.25 sqrt(n),n -> sqrt(n),0.25,0.7,PMX,48085.6
+n -> 1.25 sqrt(n),n -> sqrt(n),0.25,0.8,OX,48079.2
+n -> 1.25 sqrt(n),n -> sqrt(n),0.25,0.8,PMX,48091.8
+n -> 1.25 sqrt(n),n -> sqrt(n),0.3,0.4,OX,48133.4
+n -> 1.25 sqrt(n),n -> sqrt(n),0.3,0.4,PMX,48042.8
+n -> 1.25 sqrt(n),n -> sqrt(n),0.3,0.6,OX,48100.4
+n -> 1.25 sqrt(n),n -> sqrt(n),0.3,0.6,PMX,48020.4
+n -> 1.25 sqrt(n),n -> sqrt(n),0.3,0.7,OX,48106
+n -> 1.25 sqrt(n),n -> sqrt(n),0.3,0.7,PMX,48174.2
+n -> 1.25 sqrt(n),n -> sqrt(n),0.3,0.8,OX,48171
+n -> 1.25 sqrt(n),n -> sqrt(n),0.3,0.8,PMX,48221.8
+n -> 1.3 sqrt(n),n -> sqrt(n),0.05,0.4,OX,48138.4
+n -> 1.3 sqrt(n),n -> sqrt(n),0.05,0.4,PMX,48017.8
+n -> 1.3 sqrt(n),n -> sqrt(n),0.05,0.6,OX,48140
+n -> 1.3 sqrt(n),n -> sqrt(n),0.05,0.6,PMX,47936.4
+n -> 1.3 sqrt(n),n -> sqrt(n),0.05,0.7,OX,48120.8
+n -> 1.3 sqrt(n),n -> sqrt(n),0.05,0.7,PMX,48097.4
+n -> 1.3 sqrt(n),n -> sqrt(n),0.05,0.8,OX,48032.6
+n -> 1.3 sqrt(n),n -> sqrt(n),0.05,0.8,PMX,47993.6
+n -> 1.3 sqrt(n),n -> sqrt(n),0.1,0.4,OX,48084.2
+n -> 1.3 sqrt(n),n -> sqrt(n),0.1,0.4,PMX,48182.6
+n -> 1.3 sqrt(n),n -> sqrt(n),0.1,0.6,OX,48079
+n -> 1.3 sqrt(n),n -> sqrt(n),0.1,0.6,PMX,48196
+n -> 1.3 sqrt(n),n -> sqrt(n),0.1,0.7,OX,47998.2
+n -> 1.3 sqrt(n),n -> sqrt(n),0.1,0.7,PMX,48073.4
+n -> 1.3 sqrt(n),n -> sqrt(n),0.1,0.8,OX,48157.2
+n -> 1.3 sqrt(n),n -> sqrt(n),0.1,0.8,PMX,47980
+n -> 1.3 sqrt(n),n -> sqrt(n),0.2,0.4,OX,48124.2
+n -> 1.3 sqrt(n),n -> sqrt(n),0.2,0.4,PMX,48006.6
+n -> 1.3 sqrt(n),n -> sqrt(n),0.2,0.6,OX,48092.8
+n -> 1.3 sqrt(n),n -> sqrt(n),0.2,0.6,PMX,48054.2
+n -> 1.3 sqrt(n),n -> sqrt(n),0.2,0.7,OX,48133.6
+n -> 1.3 sqrt(n),n -> sqrt(n),0.2,0.7,PMX,48095.6
+n -> 1.3 sqrt(n),n -> sqrt(n),0.2,0.8,OX,48185.6
+n -> 1.3 sqrt(n),n -> sqrt(n),0.2,0.8,PMX,48131.4
+n -> 1.3 sqrt(n),n -> sqrt(n),0.25,0.4,OX,48220.8
+n -> 1.3 sqrt(n),n -> sqrt(n),0.25,0.4,PMX,48054.2
+n -> 1.3 sqrt(n),n -> sqrt(n),0.25,0.6,OX,47987.6
+n -> 1.3 sqrt(n),n -> sqrt(n),0.25,0.6,PMX,48241.2
+n -> 1.3 sqrt(n),n -> sqrt(n),0.25,0.7,OX,48049.2
+n -> 1.3 sqrt(n),n -> sqrt(n),0.25,0.7,PMX,47985.2
+n -> 1.3 sqrt(n),n -> sqrt(n),0.25,0.8,OX,47938
+n -> 1.3 sqrt(n),n -> sqrt(n),0.25,0.8,PMX,47993.6
+n -> 1.3 sqrt(n),n -> sqrt(n),0.3,0.4,OX,48048.4
+n -> 1.3 sqrt(n),n -> sqrt(n),0.3,0.4,PMX,48024.6
+n -> 1.3 sqrt(n),n -> sqrt(n),0.3,0.6,OX,48046
+n -> 1.3 sqrt(n),n -> sqrt(n),0.3,0.6,PMX,48077.2
+n -> 1.3 sqrt(n),n -> sqrt(n),0.3,0.7,OX,48067.4
+n -> 1.3 sqrt(n),n -> sqrt(n),0.3,0.7,PMX,48106
+n -> 1.3 sqrt(n),n -> sqrt(n),0.3,0.8,OX,48223.2
+n -> 1.3 sqrt(n),n -> sqrt(n),0.3,0.8,PMX,48222.2
