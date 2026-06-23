@@ -295,7 +295,8 @@ begin
 
             if Sender = null then
                if Check_If_All_Finished then
-                  exit;
+                 delay 0.002;
+                 exit;
                end if;
                delay 0.0001; -- Odpowiednik runtime.Gosched()
             else

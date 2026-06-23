@@ -18,29 +18,29 @@ type Message struct {
 }
 
 type User struct {
-	id           int
-	is_intrested chan bool
-	can_send     chan bool
-	is_delivered chan bool
-	outgoing     chan Message
-	incoming     chan Message
-	terminate    chan bool
-	n_sent       int
-	n_received   int
-	finished     atomic.Bool
+	id            int
+	is_interested chan bool
+	can_send      chan bool
+	is_delivered  chan bool
+	outgoing      chan Message
+	incoming      chan Message
+	terminate     chan bool
+	n_sent        int
+	n_received    int
+	finished      atomic.Bool
 }
 
 func NewUser(id int) *User {
 	return &User{
-		id:           id,
-		is_intrested: make(chan bool, 1),
-		can_send:     make(chan bool),
-		is_delivered: make(chan bool),
-		outgoing:     make(chan Message),
-		incoming:     make(chan Message),
-		terminate:    make(chan bool),
-		n_sent:       0,
-		n_received:   0,
+		id:            id,
+		is_interested: make(chan bool, 1),
+		can_send:      make(chan bool),
+		is_delivered:  make(chan bool),
+		outgoing:      make(chan Message),
+		incoming:      make(chan Message),
+		terminate:     make(chan bool),
+		n_sent:        0,
+		n_received:    0,
 	}
 }
 
@@ -62,7 +62,7 @@ func user_loop(user *User, sp *SyncPrint, n_users, n_messages int, wg *sync.Wait
 	defer wg.Done()
 	untagged := false
 
-	user.is_intrested <- true
+	user.is_interested <- true
 	sp.Println(fmt.Sprintf("\tUser[%d] is interestd", user.id))
 
 	for {
@@ -85,7 +85,7 @@ func user_loop(user *User, sp *SyncPrint, n_users, n_messages int, wg *sync.Wait
 				untagged = true
 				user.finished.Store(true)
 			} else {
-				user.is_intrested <- true
+				user.is_interested <- true
 			}
 
 		// Wait until user can send another n_messages
@@ -112,7 +112,7 @@ func choose_user(users []*User, last_iter int) (*User, int) {
 
 		user := users[last_iter]
 		select {
-		case <-user.is_intrested:
+		case <-user.is_interested:
 			return user, last_iter
 		default:
 			continue
@@ -135,7 +135,7 @@ func clean_up_server(users []*User) {
 	for i := range users {
 		u := users[i]
 		close(u.can_send)
-		close(u.is_intrested)
+		close(u.is_interested)
 		close(u.is_delivered)
 		close(u.incoming)
 		close(u.outgoing)
@@ -159,6 +159,7 @@ func server(users []*User, sp *SyncPrint, wg *sync.WaitGroup) {
 
 		if sender == nil {
 			if check_if_all_finished(users) {
+				runtime.Gosched()
 				break
 			}
 			runtime.Gosched()

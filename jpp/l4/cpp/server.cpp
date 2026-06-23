@@ -122,10 +122,6 @@ void user(User &user, int n_users, int n_messages) {
              user.state == SendState::Completed || user.terminate;
     });
 
-    if (user.terminate) {
-      break;
-    }
-
     if (user.incoming) {
       auto msg = user.incoming.value();
       user.incoming.reset();
@@ -159,6 +155,10 @@ void user(User &user, int n_users, int n_messages) {
       lock.unlock();
 
       sync_print("\tUser[" + std::to_string(user.id) + "] send completed");
+    }
+
+    if (user.terminate) {
+      break;
     }
   }
 }
@@ -233,6 +233,9 @@ void server(std::vector<User> &users) {
     last_iter = iter;
     if (waiting_sender == nullptr) {
       if (is_finished()) {
+        using namespace std::chrono_literals;
+        std::this_thread::sleep_for(500us);
+        // std::this_thread::yield();
         terminate_users(users);
         break;
       }
@@ -251,7 +254,6 @@ void server(std::vector<User> &users) {
     sync_print(std::format("[server] Delivered message"));
     complete_send(user);
   }
-
   sync_print("[server] Finished...");
 }
 
