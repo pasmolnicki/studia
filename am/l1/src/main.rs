@@ -1,6 +1,5 @@
 use algo::TspProcedure;
 use core::time;
-use l1::tsp::{DistanceMatrix, load_data};
 #[allow(unused_imports)]
 use l1::{
     algo::{
@@ -8,6 +7,10 @@ use l1::{
         TspAlgorithmResult,
     },
     tsp::{self, Data},
+};
+use l1::{
+    ga::{GAParams, GeneticAlgorithm},
+    tsp::{DistanceMatrix, load_data},
 };
 use plotters::data;
 use std::{
@@ -67,7 +70,7 @@ fn run_experiment(
     procedure_name: &str,
 ) -> Result<PathBuf, Box<dyn Error>> {
     // Task 1: Full Local Search with Invert moves
-    println!("  Running LocalSearch{procedure_name} (full invert)...");
+    println!("  Running {procedure_name}...");
     let result = procedure.run(data, true);
     println!(
         "  {procedure_name} - Mean: {}, Steps: {}, Best: {}",
@@ -343,14 +346,14 @@ const TABU_SEARCH: &str = "tabu_search";
 const LOCAL_SEARCH_Z1: &str = "Z1";
 const LOCAL_SEARCH_Z2: &str = "Z2";
 const LOCAL_SEARCH_Z3: &str = "Z3";
+const GENETIC_ALGO: &str = "ga";
 
 /// Example of running all three algorithms on TSP datasets
 #[allow(dead_code)]
 fn run_full_experiment() -> Result<(), Box<dyn Error>> {
     // These are the TSP problem instances to solve
-    let data_list = 
-        // load_small_data_sets();
-        load_lagrge_data_sets();
+    let data_list = load_small_data_sets();
+    // load_lagrge_data_sets();
     // tsp::load_data(&["ca4663.tsp", "tz6117.tsp", "eg7146.tsp", "ei8246.tsp"]);
 
     for data in data_list.iter() {
@@ -364,7 +367,12 @@ fn run_full_experiment() -> Result<(), Box<dyn Error>> {
             data,
             SIMULATED_ANNEALING,
         )?;*/
-        run_experiment(&TabooSearchBase::default(), data, TABU_SEARCH)?;
+        // run_experiment(&TabooSearchBase::default(), data, TABU_SEARCH)?;
+        run_experiment(
+            &GeneticAlgorithm::new(GAParams::new(|n| n, |n| 2 * n, 0.8, 0.2)),
+            data,
+            GENETIC_ALGO,
+        )?;
 
         println!();
     }

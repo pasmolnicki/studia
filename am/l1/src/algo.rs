@@ -2,7 +2,7 @@ use crate::tsp::{
     self, DistanceMatrix, VecPoints, apply_invert, apply_transpose, calculate_invert_delta,
     calculate_transpose_delta, rand_tour,
 };
-use crate::utils::TabooList;
+use crate::utils::{TabooList, print_complete, print_progress, print_starting};
 use rand::seq::SliceRandom;
 use rand::{Rng, RngExt};
 use serde::Serialize;
@@ -69,40 +69,6 @@ pub fn save_to_file<T: NamedObject + serde::Serialize>(result: T, file_name: &st
 }
 
 // Distance matrix builder - pre-computes distances between all pairs of points
-
-fn print_starting(algo_name: &str, data_set: &str, print: bool) {
-    if print {
-        println!(
-            "\x1b[1;36m[{}] Starting optimization on {} vertices\x1b[0m",
-            algo_name, data_set
-        );
-    }
-}
-
-fn print_progress(tag: &str, print: bool, n: usize, best_distance: i64, i: usize) {
-    if print && (i % 10 == 0 || i == n - 1) {
-        let progress = ((i + 1) as f64 / n as f64 * 100.0) as u32;
-        let bar_width = 30;
-        let filled = (progress as usize * bar_width / 100).min(bar_width);
-        let bar = format!("[{}{}]", "=".repeat(filled), " ".repeat(bar_width - filled));
-        print!(
-            "\r\x1b[1;34m[{}]\x1b[0m {} {}/{} ({}%) | Best: {}",
-            tag,
-            bar,
-            i + 1,
-            n,
-            progress,
-            best_distance
-        );
-        std::io::Write::flush(&mut std::io::stdout()).ok();
-    }
-}
-
-fn print_complete(algo_name: &str, print: bool) {
-    if print {
-        println!("\n\x1b[1;32m[{algo_name}] Complete\x1b[0m");
-    }
-}
 
 pub trait TspProcedure {
     fn algo(&self, points: &tsp::VecPoints, dist_matrix: &DistanceMatrix) -> AlgoSearchResult;

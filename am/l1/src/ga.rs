@@ -1,24 +1,47 @@
 use crate::{
-    tsp::{Data, DistanceMatrix, VecPoints, rand_tours},
-    utils::random_inversion,
+    algo::{AlgoSearchResult, TspProcedure},
+    tsp::{DistanceMatrix, VecPoints, rand_tours},
+    utils::print_progress,
 };
 use rand::{Rng, RngExt};
-use std::collections::BTreeSet;
 
-fn random_offspring(parent1: &Vec<usize>, parent2: &Vec<usize>, cut: usize) -> Vec<usize> {
-    let mut offspring = Vec::with_capacity(parent1.len());
-    offspring.extend_from_slice(&(&parent1)[0..cut]);
-    let mut present_cities: BTreeSet<usize> = offspring.iter().copied().collect();
-    for &city in parent2 {
-        if present_cities.insert(city) {
+fn random_offspring(
+    dm: &DistanceMatrix,
+    parent1: &GaIndividual,
+    parent2: &GaIndividual,
+    cut: usize,
+) -> GaIndividual {
+    let num_cities = parent1.0.len();
+    let mut offspring = Vec::with_capacity(num_cities);
+
+    // Use a boolean vector for O(1) membership checks.
+    // This is incredibly faster than a BTreeSet.
+    let mut present_cities = vec![false; num_cities];
+
+    // Inherit from parent 1
+    for &city in &parent1.0[0..cut] {
+        offspring.push(city);
+        present_cities[city] = true;
+    }
+
+    // Fill remaining from parent 2
+    for &city in parent2.0.iter() {
+        if !present_cities[city] {
             offspring.push(city);
+            // present_cities[city] = true; // Optional since we never check it again
         }
     }
-    offspring
+
+    let len = dm.calculate_tour_length(&offspring);
+    GaIndividual(offspring, len)
 }
 
+#[derive(Clone)]
+struct GaIndividual(Vec<usize>, i64);
+type GaPopulation = Vec<GaIndividual>;
+
 #[derive(Clone, Copy)]
-struct GAParams {
+pub struct GAParams {
     n_population: fn(usize) -> usize,
     crossover_rate: f64,
     mutation_rate: f64,
@@ -36,119 +59,215 @@ impl Default for GAParams {
     }
 }
 
+impl GAParams {
+    pub fn new(
+        n_population: fn(usize) -> usize,
+        n_generations: fn(usize) -> usize,
+        crossover_rate: f64,
+        mutation_rate: f64,
+    ) -> Self {
+        Self {
+            n_population,
+            crossover_rate,
+            mutation_rate,
+            n_generations,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Default)]
-struct GeneticAlgorithm {
+pub struct GeneticAlgorithm {
     params: GAParams,
 }
 
+impl TspProcedure for GeneticAlgorithm {
+    fn run(&self, data: &crate::tsp::Data, print: bool) -> crate::algo::TspAlgorithmResult {
+        self.run_multithreaded(data, print, 16)
+    }
+
+    fn algo(
+        &self,
+        points: &crate::tsp::VecPoints,
+        dm: &DistanceMatrix,
+    ) -> crate::algo::AlgoSearchResult {
+        // First step: generate random population
+        let n = points.points.len();
+        let tours = rand_tours(&points, (self.params.n_population)(n) as i32);
+        let mut population: GaPopulation = tours
+            .into_iter()
+            .map(|tour| {
+                let len = dm.calculate_tour_length(&tour);
+                GaIndividual(tour, len)
+            })
+            .collect();
+        let n_genrations = (self.params.n_generations)(n);
+
+        for i in 0..n_genrations {
+            population = self.step(&population, dm);
+            print_progress("GA", true, n_genrations, population[0].1, i);
+        }
+
+        let best_ind = &population[0];
+        let solution = VecPoints {
+            points: best_ind.0.iter().map(|&idx| points.points[idx]).collect(),
+            name: points.name.clone(),
+        };
+        AlgoSearchResult {
+            distance: best_ind.1,
+            n_steps: n_genrations as u64,
+            solution,
+        }
+    }
+
+    fn name(&self) -> &str {
+        "GeneticAlgorithm"
+    }
+}
+
 impl GeneticAlgorithm {
-    fn new(params: GAParams) -> Self {
+    pub fn new(params: GAParams) -> Self {
         Self { params }
     }
 
-    fn fitness(&self, eval: &Vec<i64>) -> Vec<f64> {
-        let max = eval.iter().max().unwrap();
-        let sum = eval.iter().map(|v| *max - *v).sum::<i64>();
-        eval.iter()
-            .map(|len| ((max - *len) as f64) / (sum as f64))
+    fn fitness(&self, population: &GaPopulation) -> Vec<f64> {
+        let max = population.iter().map(|ind| ind.1).max().unwrap();
+        let sum = population.iter().map(|v| max - v.1).sum::<i64>();
+        population
+            .iter()
+            .map(|ind| ((max - ind.1) as f64) / (sum as f64))
             .collect()
     }
 
     fn crossover(
         &self,
         rng: &mut dyn Rng,
-        parent1: &Vec<usize>,
-        parent2: &Vec<usize>,
-    ) -> (Vec<usize>, Vec<usize>) {
-        let cut = rng.random_range(0..parent1.len());
+        dm: &DistanceMatrix,
+        parent1: &GaIndividual,
+        parent2: &GaIndividual,
+    ) -> (GaIndividual, GaIndividual) {
         (
-            random_offspring(parent1, parent2, cut),
-            random_offspring(parent2, parent1, cut),
+            random_offspring(dm, parent1, parent2, rng.random_range(0..parent1.0.len())),
+            random_offspring(dm, parent2, parent1, rng.random_range(0..parent1.0.len())),
         )
     }
+    /// Run one full pass of 2-opt improvement. Returns true if any improvement was made.
+    fn two_opt_pass(&self, individual: &mut GaIndividual, dm: &DistanceMatrix) -> bool {
+        let n = individual.0.len();
+        let mut improved = false;
+        let mut i = 0;
 
-    fn mutate(&self, rng: &mut dyn Rng, offspring: &mut Vec<usize>) {
-        let (i, j) = random_inversion(rng, offspring.len());
-        offspring.swap(i, j);
-    }
+        while i < n - 1 {
+            let mut j = i + 2;
+            while j < n {
+                // For i=0, edge (n-1, 0) is the wrap-around; handle separately
+                let a = individual.0[i];
+                let b = individual.0[i + 1];
+                let c = individual.0[j];
+                let d = individual.0[(j + 1) % n];
 
-    fn roulette_wheel(
-        &self,
-        rng: &mut dyn rand::Rng,
-        fitness: &Vec<f64>,
-        population: &Vec<Vec<usize>>,
-    ) -> usize {
-        // Now calculate cumulative sum
-        let cumsum = fitness
-            .iter()
-            .scan(0f64, |acc, &x| {
-                *acc += x;
-                Some(*acc)
-            })
-            .enumerate();
+                let old_cost = dm.get(a, b) + dm.get(c, d);
+                let new_cost = dm.get(a, c) + dm.get(b, d);
 
-        let rand_value = rng.random::<f64>();
-        for (i, v) in cumsum {
-            if v > rand_value {
-                return i;
+                if new_cost < old_cost {
+                    individual.0[i + 1..=j].reverse();
+                    individual.1 += new_cost - old_cost;
+                    improved = true;
+                    j = i + 2; // Restart inner loop after structural change
+                } else {
+                    j += 1;
+                }
             }
+            i += 1;
         }
 
-        population.len() - 1
+        improved
     }
 
-    fn step(&self, population: &Vec<Vec<usize>>, dm: &DistanceMatrix) -> Vec<Vec<usize>> {
-        let mut rng = rand::rng();
-        let eval = population
-            .iter()
-            .map(|route| dm.calculate_tour_length(route))
-            .collect::<Vec<i64>>();
+    fn mutate(&self, rng: &mut dyn Rng, offspring: &mut GaIndividual, dm: &DistanceMatrix) {
+        let len = offspring.0.len();
+        // self.params.mutation_rate now means "probability per city"
+        let n_mutations = (len as f64 * self.params.mutation_rate).round() as usize;
 
-        // Get the selected indices for parents
-        let parents = self.selection(&mut rng, population, &eval);
-        let mut offspring = Vec::with_capacity(parents.len());
+        for _ in 0..n_mutations.max(1) {
+            let mut i = rng.random_range(0..len);
+            let mut j = rng.random_range(0..len);
+            if i > j {
+                std::mem::swap(&mut i, &mut j);
+            }
+
+            // Capture the four city indices before reversal
+            let a = offspring.0[(i + len - 1) % len];
+            let b = offspring.0[i];
+            let c = offspring.0[j];
+            let d = offspring.0[(j + 1) % len];
+
+            let old_cost = dm.get(a, b) + dm.get(c, d);
+
+            // After reversal: a is now adjacent to c, b is now adjacent to d
+            offspring.0[i..=j].reverse();
+
+            let new_cost = dm.get(a, c) + dm.get(b, d);
+            offspring.1 += new_cost - old_cost;
+        }
+    }
+
+    fn step(&self, population: &GaPopulation, dm: &DistanceMatrix) -> GaPopulation {
+        let mut rng = rand::rng();
+
+        let parents = self.selection(&mut rng, population);
+
+        // Pre-allocate the exact needed capacity to avoid intermediate reallocations
+        let mut new_population = Vec::with_capacity(parents.len() + population.len());
+
         for pair in parents.chunks_exact(2) {
             let (mut off1, mut off2) =
-                self.crossover(&mut rng, &population[pair[0]], &population[pair[1]]);
+                self.crossover(&mut rng, dm, &population[pair[0]], &population[pair[1]]);
 
             if rng.random::<f64>() < self.params.mutation_rate {
-                self.mutate(&mut rng, &mut off1);
+                self.mutate(&mut rng, &mut off1, dm);
             }
 
             if rng.random::<f64>() < self.params.mutation_rate {
-                self.mutate(&mut rng, &mut off2);
+                self.mutate(&mut rng, &mut off2, dm);
             }
 
-            offspring.push(off1);
-            offspring.push(off2);
+            new_population.push(off1);
+            new_population.push(off2);
         }
 
-        let acutal_parents: Vec<Vec<usize>> =
-            (0..parents.len()).map(|i| population[i].clone()).collect();
-        offspring.extend_from_slice(&acutal_parents);
-        let mut scored: Vec<(Vec<usize>, i64)> = offspring
-            .into_iter()
-            .map(|route| (route, dm.calculate_tour_length(&route)))
-            .collect();
-
-        scored.sort_by_key(|(_, eval)| *eval);
+        new_population.extend_from_slice(population);
+        new_population.sort_unstable_by_key(|ind| ind.1);
+        new_population.truncate(population.len());
+        self.two_opt_pass(&mut new_population[0], dm);
+        new_population
     }
 
-    fn selection(
-        &self,
-        rng: &mut dyn Rng,
-        population: &Vec<Vec<usize>>,
-        eval: &Vec<i64>,
-    ) -> Vec<usize> {
-        let fitness = self.fitness(eval);
-        (0..(self.params.crossover_rate * population.len() as f64) as usize)
-            .map(|_| self.roulette_wheel(rng, &fitness, population))
-            .collect()
-    }
+    fn selection(&self, rng: &mut dyn Rng, population: &GaPopulation) -> Vec<usize> {
+        // let fitness = self.fitness(population);
+        // (0..(self.params.crossover_rate * population.len() as f64) as usize)
+        //     .map(|_| self.roulette_wheel(rng, &fitness, population))
+        //    .collect()
+        let num_parents = (self.params.crossover_rate * population.len() as f64) as usize;
+        let mut parents = Vec::with_capacity(num_parents);
 
-    #[allow(dead_code)]
-    pub fn run(&self, data: &VecPoints, dm: &DistanceMatrix) {
-        // First step: generate random population
-        let mut population = rand_tours(&data, 30);
+        // Tournament size of 3 is a good default for balanced selection pressure.
+        // You can increase this to 5 if you want faster convergence.
+        let tournament_size = 3;
+
+        for _ in 0..num_parents {
+            let mut best_idx = rng.random_range(0..population.len());
+            let mut best_dist = population[best_idx].1;
+
+            for _ in 1..tournament_size {
+                let idx = rng.random_range(0..population.len());
+                let dist = population[idx].1;
+                if dist < best_dist {
+                    best_dist = dist;
+                    best_idx = idx;
+                }
+            }
+            parents.push(best_idx);
+        }
+        parents
     }
 }
