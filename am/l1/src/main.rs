@@ -512,6 +512,7 @@ fn generate_md_tables() {
             LOCAL_SEARCH_Z1,
             LOCAL_SEARCH_Z2,
             LOCAL_SEARCH_Z3,
+            GENETIC_ALGO,
         ]
         .iter()
         {
@@ -564,7 +565,7 @@ fn generate_md_tables() {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    run_full_experiment()?;
+    // run_full_experiment()?;
     // optimize_ga()?;
     // optimize_simulated_annealing_base()?;
     // optimize_taboo_list();
@@ -574,7 +575,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // let data = &tsp::load_data(&["wi29.tsp"])[0];
     // run_experiment(&TabuSearchBase::default(), data, "test_sim_ann")?;
 
-    // generate_md_tables();
+    generate_md_tables();
 
     Ok(())
 }
