@@ -1,9 +1,16 @@
 #include <algorithm>
+#include <boost/graph/adjacency_list.hpp>
+#include <boost/graph/detail/adjacency_list.hpp>
+#include <boost/graph/graphviz.hpp>
 #include <boost/program_options.hpp>
+#include <boost/property_map/dynamic_property_map.hpp>
+#include <fstream>
 #include <iostream>
 #include <istream>
 #include <print>
 #include <queue>
+#include <string>
+#include <string_view>
 #include <vector>
 
 using Graph = std::vector<std::vector<std::size_t>>;
@@ -35,6 +42,48 @@ bool is_ok_read_dag_type(std::istream& in, ProblemArg& arg) noexcept(false)
     }
     return true;
 }
+
+struct Vertex {
+    int id;
+    std::string label;
+};
+
+struct Edge {
+};
+
+using DirectedGraph = boost::adjacency_list<boost::listS, boost::vecS, boost::directedS, Vertex,
+    Edge>;
+using VertexSpec = boost::graph_traits<DirectedGraph>::vertex_descriptor;
+using EdgeSpec = boost::graph_traits<DirectedGraph>::edge_descriptor;
+
+DirectedGraph
+as_boost_graph(const Graph& graph)
+{
+    DirectedGraph g;
+    std::vector<VertexSpec> vertecies;
+    for (std::size_t i { 0 }; i < graph.size(); i++) {
+        boost::add_vertex(Vertex { static_cast<int>(i), std::to_string(i) }, g);
+    }
+
+    std::size_t u { 0 };
+    for (auto& list : graph) {
+        for (auto& v : list) {
+            boost::add_edge(u, v)
+        }
+        u++;
+    }
+}
+
+void save_into_gv(std::string_view filename, const DirectedGraph& graph)
+{
+    boost::dynamic_properties dp;
+    dp.property("node_id", boost::get(&Vertex::id, graph));
+    dp.property("label", boost::get(&Vertex::label, graph));
+
+    std::ofstream out(filename.data());
+    boost::write_graphviz_dp(out, graph, dp);
+}
+
 } // namespace detail
 
 std::istream& operator>>(std::istream& in, ProblemArg& arg) noexcept(false)
@@ -43,11 +92,11 @@ std::istream& operator>>(std::istream& in, ProblemArg& arg) noexcept(false)
         return in;
     }
 
-    if (not (in >> arg.n_vertecies)) {
+    if (not(in >> arg.n_vertecies)) {
         std::println(std::cerr, "Expected integer number of vertecies");
         return in;
     }
-    if (not (in >> arg.n_edges)) {
+    if (not(in >> arg.n_edges)) {
         std::println(std::cerr, "Expected integer number of edges");
         return in;
     }
@@ -57,7 +106,7 @@ std::istream& operator>>(std::istream& in, ProblemArg& arg) noexcept(false)
 
     for (std::size_t i { 0 }; i < arg.n_edges; i++) {
         std::size_t u, v;
-        if (not (in >> u >> v)) {
+        if (not(in >> u >> v)) {
             std::println(std::cerr, "Couldn't parse pair (u,v) with index={}", i);
             return in;
         }
@@ -100,7 +149,8 @@ void bfs(const Graph& graph, std::size_t start, Visitor&& visitor)
 }
 
 template <typename Visitor>
-void dfs_visit(const Graph& graph, std::vector<bool>& visited, std::size_t vertex, Visitor&& visitor) {
+void dfs_visit(const Graph& graph, std::vector<bool>& visited, std::size_t vertex, Visitor&& visitor)
+{
     visited[vertex] = true;
     visitor(vertex + 1);
     for (auto v : graph[vertex]) {
@@ -110,11 +160,11 @@ void dfs_visit(const Graph& graph, std::vector<bool>& visited, std::size_t verte
     }
 }
 
-template<typename Visitor>
+template <typename Visitor>
 void dfs(const Graph& graph, std::size_t start, Visitor&& visitor)
 {
     std::vector<bool> visited(graph.size(), false);
-    for (std::size_t i{0}; i < graph.size(); i++) {
+    for (std::size_t i { 0 }; i < graph.size(); i++) {
         if (not visited[i]) {
             dfs_visit(graph, visited, i, visitor);
         }
@@ -123,7 +173,8 @@ void dfs(const Graph& graph, std::size_t start, Visitor&& visitor)
 
 } // algo namespace
 
-ProgramArgs parse_program_opts(int argc, char**argv) {
+ProgramArgs parse_program_opts(int argc, char** argv)
+{
     namespace po = boost::program_options;
 
     // Declare the supported options.
@@ -150,13 +201,13 @@ int main(int argc, char** argv)
 {
     auto args = parse_program_opts(argc, argv);
     ProblemArg problem;
-    if (not (std::cin >> problem)) {
+    if (not(std::cin >> problem)) {
         return 1;
     }
 
     if (not args.print_search_tree) {
-        algo::bfs(problem.graph, 0, [](std::size_t v){ std::println("[bfs] {}", v); });
-        algo::dfs(problem.graph, 0, [](std::size_t v){ std::println("[dfs] {}", v); });
+        algo::bfs(problem.graph, 0, [](std::size_t v) { std::println("[bfs] {}", v); });
+        algo::dfs(problem.graph, 0, [](std::size_t v) { std::println("[dfs] {}", v); });
     } else {
         std::println(std::cerr, "Not implemented yet");
     }

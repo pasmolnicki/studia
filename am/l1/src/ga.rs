@@ -286,10 +286,7 @@ impl GeneticAlgorithm {
         let num_parents = (self.params.crossover_rate * population.len() as f64) as usize;
         let mut parents = Vec::with_capacity(num_parents);
 
-        // Tournament size of 3 is a good default for balanced selection pressure.
-        // You can increase this to 5 if you want faster convergence.
         let tournament_size = 3;
-
         for _ in 0..num_parents {
             let mut best_idx = rng.random_range(0..population.len());
             let mut best_dist = population[best_idx].1;

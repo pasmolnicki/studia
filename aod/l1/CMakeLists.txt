@@ -8,7 +8,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # file(GLOB_RECURSE sources ./*.cpp)
-set(sources z1.cpp)
+set(sources foo.cpp)
 
 find_package(Boost REQUIRED COMPONENTS program_options)
 

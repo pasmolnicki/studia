@@ -1,0 +1,9 @@
+digraph G {
+0 [label=Zero];
+1 [label=One];
+2 [label=Two];
+3 [label=Three];
+0->1 ;
+0->2 ;
+2->3 ;
+}

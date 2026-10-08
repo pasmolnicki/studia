@@ -1,25 +1,3 @@
-## Western Sahara (wi29.tsp)
-
-| File | Algorithm | Mean Distance | Mean Steps | Best Distance | Optimum Ratio |
-|---|---|---|---|---|---|
-| wi29.tsp | simulated_ann | 27687 | 4642 | 25834 | 1.068 |
-| wi29.tsp | tabu_search | 27289 | 29 | 25353 | 1.089 |
-| wi29.tsp | Z1 | 27345 | 24 | 25530 | 1.081 |
-| wi29.tsp | Z2 | 51595 | 16 | 34062 | 0.810 |
-| wi29.tsp | Z3 | 35612 | 24 | 26236 | 1.052 |
-| wi29.tsp | ga | 28582 | 6 | 25489 | 1.083 |
-
-## Djibouti (dj38.tsp)
-
-| File | Algorithm | Mean Distance | Mean Steps | Best Distance | Optimum Ratio |
-|---|---|---|---|---|---|
-| dj38.tsp | simulated_ann | 6953 | 5317 | 6326 | 1.052 |
-| dj38.tsp | tabu_search | 6731 | 40 | 6160 | 1.081 |
-| dj38.tsp | Z1 | 6703 | 34 | 6160 | 1.081 |
-| dj38.tsp | Z2 | 14012 | 21 | 9288 | 0.717 |
-| dj38.tsp | Z3 | 9822 | 32 | 8100 | 0.822 |
-| dj38.tsp | ga | 7014 | 7 | 6391 | 1.041 |
-
 ## Qatar (qa194.tsp)
 
 | File | Algorithm | Mean Distance | Mean Steps | Best Distance | Optimum Ratio |
