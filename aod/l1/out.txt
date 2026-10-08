@@ -1,0 +1,12 @@
+[bfs] 1
+[bfs] 2
+[bfs] 3
+[bfs] 4
+[bfs] 5
+[bfs] 6
+[dfs] 1
+[dfs] 2
+[dfs] 4
+[dfs] 5
+[dfs] 6
+[dfs] 3
