@@ -1,9 +1,10 @@
 #include "common.hpp"
+#include <algorithm>
 #include <iterator>
 #include <vector>
 
 struct SCCVertex {
-    std::size_t idx;
+    std::size_t vertex;
     std::size_t root;
     bool assigned { false };
 };
@@ -18,70 +19,55 @@ struct SCCVisitor : public algo::DfsVisitor {
     void finish_vertex(std::size_t v) override
     {
         // std::println("[scc] {}", v + 1);
-        *m_output++ = SCCVertex { v, v };
+        *m_output++ = v;
     }
 
     OutputIt m_output;
 };
 
+using scc_ordering_container = std::vector<std::size_t>;
 using scc_vertex_conatiner = std::vector<SCCVertex>;
-using scc_insert_it = std::back_insert_iterator<scc_vertex_conatiner>;
+using scc_insert_it = std::back_insert_iterator<scc_ordering_container>;
 
-void scc_assign(std::size_t u, std::size_t root, const GraphAdjList& graph, scc_vertex_conatiner& conatiner)
+void scc_assign(std::size_t u, std::size_t root, const GraphAdjList& graph, const scc_ordering_container& order, scc_vertex_conatiner& conatiner)
 {
     typename GraphAdjList::edge_container::value_type::const_iterator first;
     typename GraphAdjList::edge_container::value_type::const_iterator last;
 
     auto& vert = conatiner[u];
-    vert.idx = u;
     if (not vert.assigned) {
         vert.assigned = true;
         vert.root = root;
-        // std::println("root={} v={}", root + 1, u + 1);
+        vert.vertex = u;
 
         std::tie(first, last) = graph.edges(u);
         for (; first != last; first++) {
-            // std::println("[children] v={} child={}", u+1, *first + 1);
-            scc_assign(*first, root, graph, conatiner);
+            scc_assign(*first, root, graph, order, conatiner);
         }
     }
 }
 
 scc_vertex_conatiner strongly_connected_components(GraphAdjList& graph)
 {
-    scc_vertex_conatiner list;
-    list.reserve(graph.n_vertecies());
+    scc_ordering_container verticies;
+    verticies.reserve(graph.n_vertecies());
 
-    algo::dfs(graph, 0, SCCVisitor<scc_insert_it>(std::back_inserter(list)));
-    std::reverse(list.begin(), list.end()); // TODO: fix this - produces index bug
+    algo::dfs(graph, 0, SCCVisitor<scc_insert_it>(std::back_inserter(verticies)));
+    std::reverse(verticies.begin(), verticies.end());
 
+    scc_vertex_conatiner container(verticies.size(), SCCVertex { 0, 0, false });
     auto transp = graph.transpose();
-    for (auto v : list) {
-        scc_assign(v.idx, v.root, transp, list);
+    for (auto v : verticies) {
+        scc_assign(v, v, transp, verticies, container);
     }
-    return list;
+    return container;
 }
 
 void print_results(const scc_vertex_conatiner& result)
 {
-    /*
-    std::map<std::size_t, scc_vertex_conatiner> map;
-    for (const auto& v : result) {
-        if (map.find(v.root) == map.end()) {
-            map[v.root] = scc_vertex_conatiner { };
-        }
-        map[v.root].push_back(v);
-    }
-
-    for (auto& [key, list] : map) {
-        std::println("[scc][component] {}", key + 1);
-        for (auto v : list) {
-            std::println("\t\t\t {}", v.idx + 1);
-        }
-    }*/
-    std::for_each(result.begin(), result.end(), [](SCCVertex v){
-            std::println("[scc] {} -> {}", v.idx + 1, v.root + 1);
-        });
+    std::for_each(result.begin(), result.end(), [](SCCVertex v) {
+        std::println("[scc] {} -> {}", v.vertex + 1, v.root + 1);
+    });
 }
 
 int main()
