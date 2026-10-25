@@ -114,8 +114,6 @@ struct GraphAdjList {
     edge_container m_graph;
 };
 
-// using Graph = std::vector<std::vector<std::size_t>>;
-
 struct ProblemArg {
     bool is_dag { false };
     std::size_t n_vertecies { };
@@ -356,43 +354,6 @@ void dfs_visit(GraphAdjList::Vertex& v, std::size_t boost_prev, GraphAdjList& g,
     visitor.finish_vertex(v.idx);
 }
 
-template <typename Visitor>
-    requires std::is_base_of_v<DfsVisitor, Visitor>
-detail::DirectedGraph impl_dfs_it(GraphAdjList& g, std::size_t start, Visitor& vis) {
-    typename GraphAdjList::edge_container::value_type::iterator first;
-    typename GraphAdjList::edge_container::value_type::iterator last;
-
-    detail::DirectedGraph stree;
-    std::vector<StackData> stack;
-
-    stack.push_back({0, { }, start});
-    while(not stack.empty()) {
-        auto data= stack.front();
-        stack.pop_back();
-        GraphAdjList::Vertex& v = g.vertex(data.u);
-
-        std::size_t boost_idx = boost::add_vertex(detail::Vertex(v.idx), stree);
-        if (boost_idx != data.boost_prev) {
-            boost::add_edge(data.boost_prev, boost_idx, detail::Edge { }, stree);
-        }
-
-        /*auto [begin, end] = g.edges(v);
-        first = end - 1;
-        last = begin - 1;*/
-        std::tie(first, last) = g.edges(v);
-        for (; first != last; ++first) {
-            auto& u = g.vertex(*first);
-            if (u.color == GraphAdjList::White) {
-                vis.tree_edge(v.idx, u.idx);
-                stack.push_back({boost_idx, v.idx, u.idx});
-            }
-            else if (u.color == GraphAdjList::Gray) {
-                vis.back_edge(v.idx, u.idx);
-            }
-        }
-    }
-}
-
 template <typename Visitor = DfsPrintVisitor>
     requires std::is_base_of_v<DfsVisitor, Visitor>
 detail::DirectedGraph dfs(GraphAdjList& graph, std::size_t start, Visitor&& visitor)
@@ -415,19 +376,6 @@ detail::DirectedGraph dfs(GraphAdjList& graph, std::size_t start, Visitor& visit
 inline detail::DirectedGraph dfs(GraphAdjList& graph, std::size_t start, std::function<void(std::size_t)> fn)
 {
     return dfs(graph, start, DsfFunctorVisitor { fn });
-}
-
-template <typename Visitor>
-    requires std::is_base_of_v<DfsVisitor, Visitor>
-detail::DirectedGraph dfs_iterative(GraphAdjList& g, std::size_t start, Visitor&& vis) {
-    return impl_dfs_it(g, start, vis);
-}
-
-
-template <typename Visitor>
-    requires std::is_base_of_v<DfsVisitor, Visitor>
-detail::DirectedGraph dfs_iterative(GraphAdjList& g, std::size_t start, Visitor& vis) {
-    return impl_dfs_it(g, start, vis);
 }
 
 } // algo namespace
