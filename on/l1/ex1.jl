@@ -8,10 +8,6 @@ function calc_macheps(::Type{T}) where {T <: AbstractFloat}
   return prev
 end
 
-println("macheps: ", calc_macheps(Float64), " ", eps(Float64))
-println("macheps: ", calc_macheps(Float32), " ", eps(Float32))
-println("macheps: ", calc_macheps(Float16), " ", eps(Float16))
-
 function calc_eta(::Type{T}) where {T <: AbstractFloat}
   prev = T(1.0)
   eta = T(1.0)
@@ -22,15 +18,7 @@ function calc_eta(::Type{T}) where {T <: AbstractFloat}
   return prev
 end
 
-println("eta: ", calc_eta(Float64), " ", nextfloat(Float64(0.0)))
-println("eta: ", calc_eta(Float32), " ", nextfloat(Float32(0.0)))
-println("eta: ", calc_eta(Float16), " ", nextfloat(Float16(0.0)))
-
-println("floatmin: ", floatmin(Float64))
-println("floatmin: ", floatmin(Float32))
-
 """
-Wyznacza najwięszką wartość reprezentowalną w podanym typie zmiennoprzecinkowym
 Oblicza iteracyjnie największą taką liczbę n, że !isinf(n) && isinf(n * 2)
 (liczba ma najwięszką możliwą cechę)
 następnie dodaje kolejno n/2,n/4,n/8,... dopóki prawdą jest, że !isinf(n)
@@ -53,8 +41,16 @@ function calc_max(::Type{T}) where {T <: AbstractFloat}
   return non_inf
 end
 
-println("max: ", calc_max(Float64), " ", floatmax(Float64))
-println("max: ", calc_max(Float32), " ", floatmax(Float32))
-println("max: ", calc_max(Float16), " ", floatmax(Float16))
+function run_experiment(::Type{T}) where {T <: AbstractFloat }
+  println()
+  println("-"^40)
+  println(nameof(T), " macheps: ", calc_macheps(T), " ", eps(T))
+  println(nameof(T), " eta: ", calc_eta(T), " ", nextfloat(T(0.0)))
+  println(nameof(T), " floatmin: ", floatmin(T))
+  println(nameof(T), " max: ", calc_max(T), " ", floatmax(T))
+end
 
+run_experiment(Float64)
+run_experiment(Float32)
+run_experiment(Float16)
 # println(bitstring(calc_max(Float16)), " ", bitstring(floatmax(Float16)))

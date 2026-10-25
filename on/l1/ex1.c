@@ -4,9 +4,9 @@
 
 int main(int argc, char** argv)
 {
-    printf("eps double: %e\n", DBL_EPSILON);
-    printf("esp float: %e\n", FLT_EPSILON);
-    printf("max double: %e\n", DBL_MAX);
-    printf("max float: %e\n", FLT_MAX);
+    printf("eps double: %.17g\n", DBL_EPSILON);
+    printf("esp float: %.17g\n", FLT_EPSILON);
+    printf("max double: %.17g\n", DBL_MAX);
+    printf("max float: %.17g\n", FLT_MAX);
     return 0;
 }

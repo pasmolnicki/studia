@@ -7,13 +7,15 @@ function g(x::Float64)
 end
 
 function run_exp()
+  neg_pow = 1
   x = 1.0 / 8.0
   while true
-    println("$x: f(x)=$(f(x)) g(x)=$(g(x))")
+    println("(8^-$neg_pow) $x: f(x)=$(f(x)) g(x)=$(g(x))")
     if f(x) == 0.0 && g(x) == 0.0
       break
     end
     x /= 8.0
+    neg_pow += 1
   end
 end
 
